@@ -1,2 +1,98 @@
-# Auto detect text files and perform LF normalization
+# Default: detect text files and store them with LF in the repository
 * text=auto
+
+# Code and text: LF in the working tree too
+*.cs                 text eol=lf diff=csharp
+*.shader             text eol=lf
+*.hlsl               text eol=lf
+*.cginc              text eol=lf
+*.compute            text eol=lf
+*.shadergraph        text eol=lf
+*.shadersubgraph     text eol=lf
+*.uss                text eol=lf
+*.uxml               text eol=lf
+*.asmdef             text eol=lf
+*.asmref             text eol=lf
+*.inputactions       text eol=lf
+*.json               text eol=lf
+*.md                 text eol=lf
+*.txt                text eol=lf
+
+# Unity YAML: text, LF, merged with UnityYAMLMerge (see README).
+# Git falls back to its normal merge if the tool is not configured.
+*.unity              text eol=lf merge=unityyamlmerge
+*.prefab             text eol=lf merge=unityyamlmerge
+*.meta               text eol=lf merge=unityyamlmerge
+*.mat                text eol=lf merge=unityyamlmerge
+*.anim               text eol=lf merge=unityyamlmerge
+*.controller         text eol=lf merge=unityyamlmerge
+*.overrideController text eol=lf merge=unityyamlmerge
+*.physicMaterial     text eol=lf merge=unityyamlmerge
+*.physicsMaterial2D  text eol=lf merge=unityyamlmerge
+*.playable           text eol=lf merge=unityyamlmerge
+*.mask               text eol=lf merge=unityyamlmerge
+*.preset             text eol=lf merge=unityyamlmerge
+*.mixer              text eol=lf merge=unityyamlmerge
+*.lighting           text eol=lf merge=unityyamlmerge
+*.renderTexture      text eol=lf merge=unityyamlmerge
+*.spriteatlasv2      text eol=lf merge=unityyamlmerge
+*.terrainlayer       text eol=lf merge=unityyamlmerge
+*.shadervariants     text eol=lf merge=unityyamlmerge
+*.signal             text eol=lf merge=unityyamlmerge
+*.scenetemplate      text eol=lf merge=unityyamlmerge
+
+# .asset is usually YAML, but some are binary (lighting, terrain, navmesh data),
+# so let git detect which is which instead of forcing text.
+*.asset              text=auto eol=lf merge=unityyamlmerge
+LightingData.asset   binary
+
+# Textures and images
+*.png                binary
+*.jpg                binary
+*.jpeg               binary
+*.gif                binary
+*.bmp                binary
+*.tga                binary
+*.tif                binary
+*.tiff               binary
+*.psd                binary
+*.psb                binary
+*.exr                binary
+*.hdr                binary
+*.ico                binary
+
+# Audio
+*.wav                binary
+*.mp3                binary
+*.ogg                binary
+*.aif                binary
+*.aiff               binary
+*.flac               binary
+
+# Video
+*.mp4                binary
+*.mov                binary
+*.avi                binary
+*.webm               binary
+
+# Models
+*.fbx                binary
+*.obj                binary
+*.blend              binary
+*.glb                binary
+*.max                binary
+*.ma                 binary
+*.mb                 binary
+
+# Fonts
+*.ttf                binary
+*.otf                binary
+
+# Other binaries
+*.dll                binary
+*.so                 binary
+*.dylib              binary
+*.zip                binary
+*.7z                 binary
+*.pdf                binary
+*.bytes              binary

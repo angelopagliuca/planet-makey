@@ -1,0 +1,59 @@
+# The Unity project lives in PlanetMakey/. Generated folders are anchored to it
+# so that nothing with the same name inside Assets/ is ignored by accident.
+
+# Unity-generated folders
+/PlanetMakey/[Ll]ibrary/
+/PlanetMakey/[Tt]emp/
+/PlanetMakey/[Oo]bj/
+/PlanetMakey/[Ll]ogs/
+/PlanetMakey/[Uu]ser[Ss]ettings/
+/PlanetMakey/[Mm]emoryCaptures/
+/PlanetMakey/[Rr]ecordings/
+/PlanetMakey/.utmp/
+
+# Builds
+/PlanetMakey/[Bb]uild/
+/PlanetMakey/[Bb]uilds/
+/[Bb]uild/
+/[Bb]uilds/
+*_BurstDebugInformation_DoNotShip/
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+*.apk
+*.aab
+*.unitypackage
+*.unitypackage.meta
+
+# .meta files under Assets/ are always tracked
+!/PlanetMakey/[Aa]ssets/**/*.meta
+
+# IDE folders and generated project files (Unity regenerates these)
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+/PlanetMakey/[Aa]ssets/Plugins/Editor/JetBrains*
+
+# Unity crash report
+sysinfo.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
