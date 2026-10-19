@@ -570,6 +570,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1105884919}
   - component: {fileID: 1105884918}
+  - component: {fileID: 1105884921}
   - component: {fileID: 1105884917}
   - component: {fileID: 1105884920}
   m_Layer: 0
@@ -593,6 +594,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.HitDebugOverlay
   _sources:
   - {fileID: 1105884918}
+  - {fileID: 1105884921}
   _palette: {fileID: 11400000, guid: 14f74ae4e2b431046bda2fadf3d9e9d4, type: 2}
   _resolver: {fileID: 1105884920}
   _maxMarkers: 8
@@ -641,11 +643,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.HitResolver
   _sources:
   - {fileID: 1105884918}
+  - {fileID: 1105884921}
   _camera: {fileID: 330585545}
   _layers:
     serializedVersion: 2
     m_Bits: 1025
   _maxDistance: 100
+--- !u!114 &1105884921
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1105884916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31e3013fa7e388a469f84aef56083600, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.UdpHitSource
+  _port: 9000
 --- !u!1 &1935858411
 GameObject:
   m_ObjectHideFlags: 0

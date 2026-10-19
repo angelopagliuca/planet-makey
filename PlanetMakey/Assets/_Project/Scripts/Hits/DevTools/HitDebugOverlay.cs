@@ -3,7 +3,7 @@ using System.Globalization;
 using PlanetMakey.Core;
 using UnityEngine;
 
-namespace PlanetMakey.Hits
+namespace PlanetMakey.Hits.DevTools
 {
     /// <summary>
     /// Debug overlay that draws the most recent hits where they landed, in their ball color.
@@ -60,10 +60,23 @@ namespace PlanetMakey.Hits
         // wired separately, so the status line can never show for a source whose hits are not drawn.
         [NonSerialized] private MouseHitSource _mouseSource;
 
+        // Same for the UDP source. Its line is rebuilt only when one of the shown values changes.
+        [NonSerialized] private UdpHitSource _udpSource;
+        private string _networkText;
+        private bool _networkListening;
+        private int _networkRejected;
+        private bool _networkLastRejected;
+        private string _networkLast;
+
+        // Top of the next text row. Reset at the start of every OnGUI, so the rows stack.
+        private float _rowTop;
+
         private void OnEnable()
         {
             EnsureBuffers();
             _mouseSource = null;
+            _udpSource = null;
+            _networkText = null;
             _resultText = null;
 
             if (_resolver != null)
@@ -94,6 +107,12 @@ namespace PlanetMakey.Hits
                 if (mouseSource != null)
                 {
                     _mouseSource = mouseSource;
+                }
+
+                UdpHitSource udpSource = source as UdpHitSource;
+                if (udpSource != null)
+                {
+                    _udpSource = udpSource;
                 }
             }
         }
@@ -184,8 +203,11 @@ namespace PlanetMakey.Hits
 
             EnsureLabelStyle();
             DrawMarkers();
+
+            _rowTop = 6f;
             DrawStatus();
             DrawResult();
+            DrawNetwork();
             GUI.color = Color.white;
         }
 
@@ -249,10 +271,11 @@ namespace PlanetMakey.Hits
 
             float swatchSize = _fontSize;
             GUI.color = GetDisplayColor(selected);
-            GUI.DrawTexture(new Rect(10f, 10f, swatchSize, swatchSize), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(10f, _rowTop + 4f, swatchSize, swatchSize), Texture2D.whiteTexture);
 
             GUI.color = Color.white;
-            GUI.Label(new Rect(18f + swatchSize, 6f, 600f, _fontSize + 8f), _statusText, _labelStyle);
+            GUI.Label(new Rect(18f + swatchSize, _rowTop, 600f, _fontSize + 8f), _statusText, _labelStyle);
+            _rowTop += _fontSize + 10f;
         }
 
         private void DrawResult()
@@ -262,11 +285,57 @@ namespace PlanetMakey.Hits
                 return;
             }
 
-            // Sits under the status line when that is shown, and in its place when it is not.
-            float top = _mouseSource != null ? 6f + _fontSize + 10f : 6f;
+            DrawRow(_resultText);
+        }
 
+        private void DrawNetwork()
+        {
+            if (_udpSource == null)
+            {
+                return;
+            }
+
+            bool listening = _udpSource.IsListening;
+            int rejected = _udpSource.RejectedCount;
+            bool lastRejected = _udpSource.LastMessageRejected;
+            string last = _udpSource.LastMessage;
+
+            bool changed = _networkText == null
+                || listening != _networkListening
+                || rejected != _networkRejected
+                || lastRejected != _networkLastRejected
+                || last != _networkLast;
+
+            if (changed)
+            {
+                _networkListening = listening;
+                _networkRejected = rejected;
+                _networkLastRejected = lastRejected;
+                _networkLast = last;
+                _networkText = BuildNetworkText(_udpSource.Port, listening, rejected, last, lastRejected);
+            }
+
+            DrawRow(_networkText);
+        }
+
+        private static string BuildNetworkText(int port, bool listening, int rejected, string last, bool lastRejected)
+        {
+            string state = listening ? "listening" : "NOT LISTENING (see Console)";
+
+            string lastText = "-";
+            if (!string.IsNullOrEmpty(last))
+            {
+                lastText = lastRejected ? last + "  (rejected)" : last;
+            }
+
+            return "UDP :" + port + " " + state + "   rejected " + rejected + "   last: " + lastText;
+        }
+
+        private void DrawRow(string text)
+        {
             GUI.color = Color.white;
-            GUI.Label(new Rect(10f, top, 600f, _fontSize + 8f), _resultText, _labelStyle);
+            GUI.Label(new Rect(10f, _rowTop, Screen.width - 20f, _fontSize + 8f), text, _labelStyle);
+            _rowTop += _fontSize + 10f;
         }
 
         private Color GetDisplayColor(BallColor ballColor)

@@ -1,7 +1,7 @@
 using PlanetMakey.Core;
 using UnityEngine;
 
-namespace PlanetMakey.Hits
+namespace PlanetMakey.Hits.DevTools
 {
     /// <summary>
     /// A stand-in target for testing the hit pipeline: it flashes in the color of the ball that

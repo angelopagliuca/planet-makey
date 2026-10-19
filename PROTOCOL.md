@@ -2,13 +2,13 @@
 
 How the booth hardware tells the game that a ball hit the wall.
 
-Status: draft. The game side is not built yet, so details can still change.
+Status: draft. The game reads `HIT` messages; `START` is not built yet. Details can still change.
 
 ## Transport
 
 - **UDP**, sent to the PC that runs the game, port **9000** (the port can be changed in the game).
 - One message per packet, as plain ASCII text.
-- Fields are separated by single spaces. A trailing newline is fine.
+- Fields are separated by spaces. A trailing newline is fine.
 - Numbers use `.` as the decimal point.
 - The game never replies.
 
@@ -16,7 +16,8 @@ Status: draft. The game side is not built yet, so details can still change.
 
 ### HIT
 
-Send one `HIT` for every ball that hits the wall, as soon as the impact is detected.
+Send one `HIT` for every ball that hits the wall, as soon as the impact is detected. `HIT` can be
+written in upper or lower case.
 
 ```
 HIT <x> <y> <color>
@@ -51,7 +52,8 @@ Sent when a physical start button is pressed. Not needed yet.
 ## Rules
 
 - Send exactly one `HIT` per impact. If the sensor sees the same ball several times, pick one.
-- Messages the game does not understand are ignored.
+- Messages the game does not understand are ignored. The game shows how many it has ignored and
+  the text of the latest message, which helps when checking what the hardware actually sends.
 
 ## Try it without hardware
 
