@@ -57,3 +57,7 @@ Thumbs.db
 ehthumbs.db
 [Dd]esktop.ini
 $RECYCLE.BIN/
+
+# Virtual Environments
+.venv/
+*/__pycache__/*

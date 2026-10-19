@@ -9,6 +9,7 @@ shield to break it and save the cow. Keep as many cows as you can until the roos
 ## Requirements
 
 - Unity **6000.6.4f1**, installed through Unity Hub
+- Python 3.6 or newer, only for the test scripts in `DevTools/` (nothing to install with pip)
 
 ## Repository layout
 
@@ -19,6 +20,7 @@ shield to break it and save the cow. Keep as many cows as you can until the roos
 | `PlanetMakey/Packages/` | Package manifest |
 | `PlanetMakey/ProjectSettings/` | Unity project settings |
 | `PROTOCOL.md` | Messages the booth hardware sends to the game |
+| `DevTools/` | Scripts that fake the booth hardware, for testing the game without it |
 
 Anything that is not part of the Unity project, such as concept art and reference
 material, lives next to `PlanetMakey/` at the repository root.
