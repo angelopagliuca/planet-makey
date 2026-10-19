@@ -7,8 +7,9 @@ namespace PlanetMakey.Hits.DevTools
 {
     /// <summary>
     /// Debug overlay that draws the most recent hits where they landed, in their ball color.
-    /// It shows raw sensor positions, so it is also the way to see what the hardware reports
-    /// before calibration.
+    /// With a calibration wired, markers are drawn where the game believes the ball landed; the
+    /// text beside each marker is always the raw sensor position, which is what the hardware
+    /// reports.
     /// </summary>
     /// <remarks>
     /// Drawn with OnGUI, which allocates every frame. That is acceptable for a debug tool:
@@ -16,6 +17,10 @@ namespace PlanetMakey.Hits.DevTools
     /// </remarks>
     public sealed class HitDebugOverlay : MonoBehaviour
     {
+        private const string UncalibratedText = "Calibration: none (raw positions)";
+        private const string CalibratedText = "Calibration: active";
+        private const string CalibratingText = "Calibration: in progress";
+
         [Header("Wiring")]
         [Tooltip("Every hit source whose hits should be drawn. If one of them is the mouse source, the color it will fire next is shown too.")]
         [SerializeField] private HitSource[] _sources;
@@ -25,6 +30,9 @@ namespace PlanetMakey.Hits.DevTools
 
         [Tooltip("Optional. When set, the overlay also shows what the latest hit landed on.")]
         [SerializeField] private HitResolver _resolver;
+
+        [Tooltip("Optional. When set, markers are drawn at the calibrated position and the calibration state is shown.")]
+        [SerializeField] private WallCalibration _calibration;
 
         [Header("Look")]
         [Tooltip("How many recent hits are kept on screen.")]
@@ -41,6 +49,7 @@ namespace PlanetMakey.Hits.DevTools
 
         // Fixed-size ring buffer of recent hits, so a hit never allocates a collection.
         private BallHit[] _hits;
+        private Vector2[] _markerPositions;
         private float[] _hitTimes;
         private string[] _hitLabels;
         private int _nextIndex;
@@ -149,6 +158,7 @@ namespace PlanetMakey.Hits.DevTools
             // OnEnable again but not Awake, and it does not bring the hit buffer back.
             int capacity = Mathf.Max(1, _maxMarkers);
             _hits = new BallHit[capacity];
+            _markerPositions = new Vector2[capacity];
             _hitTimes = new float[capacity];
             _hitLabels = new string[capacity];
             _nextIndex = 0;
@@ -158,6 +168,9 @@ namespace PlanetMakey.Hits.DevTools
         private void OnHitReceived(BallHit hit)
         {
             _hits[_nextIndex] = hit;
+
+            // Fixed when the hit arrives, so a marker stays put if the calibration changes.
+            _markerPositions[_nextIndex] = _calibration != null ? _calibration.Apply(hit.Position) : hit.Position;
 
             // Unscaled, so markers still fade if the game is paused with a zero time scale.
             _hitTimes[_nextIndex] = Time.unscaledTime;
@@ -208,6 +221,7 @@ namespace PlanetMakey.Hits.DevTools
             DrawStatus();
             DrawResult();
             DrawNetwork();
+            DrawCalibration();
             GUI.color = Color.white;
         }
 
@@ -237,10 +251,18 @@ namespace PlanetMakey.Hits.DevTools
                 }
 
                 BallHit hit = _hits[i];
+                Vector2 position = _markerPositions[i];
 
-                // Sensor space has its origin at the bottom left; OnGUI at the top left.
-                float x = hit.Position.x * Screen.width;
-                float y = (1f - hit.Position.y) * Screen.height;
+                // A mapping can send a point to infinity; there is nothing to draw then.
+                if (float.IsNaN(position.x) || float.IsNaN(position.y)
+                    || float.IsInfinity(position.x) || float.IsInfinity(position.y))
+                {
+                    continue;
+                }
+
+                // The picture has its origin at the bottom left; OnGUI at the top left.
+                float x = position.x * Screen.width;
+                float y = (1f - position.y) * Screen.height;
 
                 Color color = GetDisplayColor(hit.Color);
                 color.a = 1f - (age / _markerLifetime);
@@ -316,6 +338,27 @@ namespace PlanetMakey.Hits.DevTools
             }
 
             DrawRow(_networkText);
+        }
+
+        private void DrawCalibration()
+        {
+            if (_calibration == null)
+            {
+                return;
+            }
+
+            if (_calibration.IsCalibrating)
+            {
+                DrawRow(CalibratingText);
+            }
+            else if (_calibration.IsCalibrated)
+            {
+                DrawRow(CalibratedText);
+            }
+            else
+            {
+                DrawRow(UncalibratedText);
+            }
         }
 
         private static string BuildNetworkText(int port, bool listening, int rejected, string last, bool lastRejected)

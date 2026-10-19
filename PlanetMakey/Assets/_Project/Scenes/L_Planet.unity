@@ -573,6 +573,8 @@ GameObject:
   - component: {fileID: 1105884921}
   - component: {fileID: 1105884917}
   - component: {fileID: 1105884920}
+  - component: {fileID: 1105884923}
+  - component: {fileID: 1105884922}
   m_Layer: 0
   m_Name: HitPipeline
   m_TagString: Untagged
@@ -597,6 +599,7 @@ MonoBehaviour:
   - {fileID: 1105884921}
   _palette: {fileID: 11400000, guid: 14f74ae4e2b431046bda2fadf3d9e9d4, type: 2}
   _resolver: {fileID: 1105884920}
+  _calibration: {fileID: 1105884923}
   _maxMarkers: 8
   _markerSize: 24
   _markerLifetime: 3
@@ -614,6 +617,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.MouseHitSource
   _selectedColor: 0
+  _skewEnabled: 0
+  _skewScale: {x: 0.8, y: 0.9}
+  _skewRotationDegrees: 10
+  _skewOffset: {x: 0.1, y: -0.05}
 --- !u!4 &1105884919
 Transform:
   m_ObjectHideFlags: 0
@@ -645,6 +652,7 @@ MonoBehaviour:
   - {fileID: 1105884918}
   - {fileID: 1105884921}
   _camera: {fileID: 330585545}
+  _calibration: {fileID: 1105884923}
   _layers:
     serializedVersion: 2
     m_Bits: 1025
@@ -662,6 +670,41 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.UdpHitSource
   _port: 9000
+--- !u!114 &1105884922
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1105884916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 19e92ee6c4d75bc4f957ea41ce5a7346, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.CalibrationMode
+  _calibration: {fileID: 1105884923}
+  _sources:
+  - {fileID: 1105884918}
+  - {fileID: 1105884921}
+  _toggleKey: 102
+  _inset: 0.1
+  _hitsPerTarget: 1
+  _targetSize: 48
+  _fontSize: 28
+  _messageSeconds: 2.5
+--- !u!114 &1105884923
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1105884916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7a559ec6ff7b1242a50156f517154c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlanetMakey.Hits::PlanetMakey.Hits.WallCalibration
+  _fileName: wall-calibration.json
 --- !u!1 &1935858411
 GameObject:
   m_ObjectHideFlags: 0

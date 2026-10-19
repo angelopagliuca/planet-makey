@@ -18,6 +18,9 @@ namespace PlanetMakey.Hits
         [Tooltip("The camera whose view is projected onto the wall.")]
         [SerializeField] private Camera _camera;
 
+        [Tooltip("Maps the sensor positions onto the projected picture. Raw positions are used if this is empty.")]
+        [SerializeField] private WallCalibration _calibration;
+
         [Header("Raycast")]
         [Tooltip("Layers a ball can hit.")]
         [SerializeField] private LayerMask _layers = ~0;
@@ -28,7 +31,7 @@ namespace PlanetMakey.Hits
         /// <summary>
         /// Raised once for every hit this resolver handles, whether it landed on a target, on
         /// something that is not a target, or on nothing. Nothing is raised while the resolver has
-        /// no camera.
+        /// no camera, or while a calibration is running.
         /// </summary>
         public event Action<ResolvedHit> HitResolved;
 
@@ -37,6 +40,11 @@ namespace PlanetMakey.Hits
             if (_camera == null)
             {
                 Debug.LogWarning("HitResolver has no camera, so it cannot resolve any hits.", this);
+            }
+
+            if (_calibration == null)
+            {
+                Debug.LogWarning("HitResolver has no calibration, so it uses the raw sensor positions.", this);
             }
 
             if (_sources == null || _sources.Length == 0)
@@ -80,8 +88,15 @@ namespace PlanetMakey.Hits
                 return;
             }
 
+            // A hit thrown at a calibration target is a calibration point, not a shot.
+            if (_calibration != null && _calibration.IsCalibrating)
+            {
+                return;
+            }
+
+            Vector2 position = _calibration != null ? _calibration.Apply(hit.Position) : hit.Position;
+
             // Outside 0 to 1 is off the projected picture. Written so that NaN also counts as off.
-            Vector2 position = hit.Position;
             bool onPicture = position.x >= 0f && position.x <= 1f
                 && position.y >= 0f && position.y <= 1f;
             if (!onPicture)

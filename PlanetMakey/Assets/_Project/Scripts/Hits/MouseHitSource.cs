@@ -13,6 +13,19 @@ namespace PlanetMakey.Hits
         [Tooltip("The ball color used until a color key is pressed.")]
         [SerializeField] private BallColor _selectedColor = BallColor.Red;
 
+        [Header("Test skew")]
+        [Tooltip("Distorts the click positions the way a badly aligned sensor would, so calibration can be tried at a desk.")]
+        [SerializeField] private bool _skewEnabled;
+
+        [Tooltip("Scale around the center of the screen.")]
+        [SerializeField] private Vector2 _skewScale = new Vector2(0.8f, 0.9f);
+
+        [Tooltip("Rotation around the center of the screen, in degrees.")]
+        [SerializeField] private float _skewRotationDegrees = 10f;
+
+        [Tooltip("Shift, as a fraction of the screen.")]
+        [SerializeField] private Vector2 _skewOffset = new Vector2(0.1f, -0.05f);
+
         /// <summary>The color the next click will be reported with.</summary>
         public BallColor SelectedColor => _selectedColor;
 
@@ -77,7 +90,28 @@ namespace PlanetMakey.Hits
                 return;
             }
 
+            if (_skewEnabled)
+            {
+                position = ApplySkew(position);
+            }
+
             RaiseHit(new BallHit(position, _selectedColor));
+        }
+
+        // The result may fall outside 0 to 1, as a misaligned sensor's would.
+        private Vector2 ApplySkew(Vector2 position)
+        {
+            Vector2 center = new Vector2(0.5f, 0.5f);
+            Vector2 scaled = Vector2.Scale(position - center, _skewScale);
+
+            float radians = _skewRotationDegrees * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(radians);
+            float sin = Mathf.Sin(radians);
+            Vector2 rotated = new Vector2(
+                scaled.x * cos - scaled.y * sin,
+                scaled.x * sin + scaled.y * cos);
+
+            return rotated + center + _skewOffset;
         }
     }
 }

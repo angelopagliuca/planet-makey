@@ -25,7 +25,7 @@ material, lives next to `PlanetMakey/` at the repository root.
 
 ## Progress
 
-Ball hits arrive from a mouse click or from the booth hardware over the network, and are traced into the scene to the object they land on. No gameplay yet.
+The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. No gameplay yet.
 
 A box is ticked once that step has been built and tested.
 
@@ -34,7 +34,7 @@ A box is ticked once that step has been built and tested.
 - [x] 1.1 Mouse clicks stand in for ball hits, with a color for each ball
 - [x] 1.2 A hit is traced into the scene and the object it lands on reacts
 - [x] 1.3 The game receives hits from the booth hardware over the network
-- [ ] 1.4 Calibration lines up the wall sensor with the projected picture
+- [x] 1.4 Calibration lines up the wall sensor with the projected picture
 
 **2. Abduction loop** (week of October 12): the core game with placeholder shapes
 
