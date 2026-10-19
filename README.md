@@ -25,14 +25,14 @@ material, lives next to `PlanetMakey/` at the repository root.
 
 ## Progress
 
-The first step of the hit pipeline works: a mouse click stands in for a ball hit. No gameplay yet.
+A mouse click stands in for a ball hit and is traced into the scene to the object it lands on. No gameplay yet.
 
 A box is ticked once that step has been built and tested.
 
 **1. Hit pipeline** (week of October 5): a ball hitting the wall reaches the game
 
 - [x] 1.1 Mouse clicks stand in for ball hits, with a color for each ball
-- [ ] 1.2 A hit is traced into the scene and the object it lands on reacts
+- [x] 1.2 A hit is traced into the scene and the object it lands on reacts
 - [ ] 1.3 The game receives hits from the booth hardware over the network
 - [ ] 1.4 Calibration lines up the wall sensor with the projected picture
 

@@ -23,6 +23,9 @@ namespace PlanetMakey.Hits
         [Tooltip("Display colors for the ball colors. Markers are white if this is empty.")]
         [SerializeField] private BallColorPalette _palette;
 
+        [Tooltip("Optional. When set, the overlay also shows what the latest hit landed on.")]
+        [SerializeField] private HitResolver _resolver;
+
         [Header("Look")]
         [Tooltip("How many recent hits are kept on screen.")]
         [SerializeField] private int _maxMarkers = 8;
@@ -47,6 +50,9 @@ namespace PlanetMakey.Hits
         private string _statusText;
         private BallColor _statusColor;
 
+        // What the latest hit landed on, built once per resolved hit. Empty until the first hit.
+        private string _resultText;
+
         // Not kept across a script recompile in Play mode, so it is rebuilt from the skin.
         [NonSerialized] private GUIStyle _labelStyle;
 
@@ -58,6 +64,12 @@ namespace PlanetMakey.Hits
         {
             EnsureBuffers();
             _mouseSource = null;
+            _resultText = null;
+
+            if (_resolver != null)
+            {
+                _resolver.HitResolved += OnHitResolved;
+            }
 
             if (_sources == null || _sources.Length == 0)
             {
@@ -88,6 +100,11 @@ namespace PlanetMakey.Hits
 
         private void OnDisable()
         {
+            if (_resolver != null)
+            {
+                _resolver.HitResolved -= OnHitResolved;
+            }
+
             if (_sources == null)
             {
                 return;
@@ -139,6 +156,24 @@ namespace PlanetMakey.Hits
             _hitCount = Mathf.Min(_hitCount + 1, _hits.Length);
         }
 
+        private void OnHitResolved(ResolvedHit resolved)
+        {
+            // Built once per hit and not per frame. The collider is checked first because a
+            // target may destroy its own object while handling the ball.
+            if (resolved.Collider == null)
+            {
+                _resultText = resolved.HitTarget ? "Result: Hit target" : "Result: Miss";
+            }
+            else if (resolved.HitTarget)
+            {
+                _resultText = "Result: Hit target " + resolved.Collider.name;
+            }
+            else
+            {
+                _resultText = "Result: Hit non-target " + resolved.Collider.name;
+            }
+        }
+
         private void OnGUI()
         {
             // OnGUI also runs for layout and input events. Draw once per frame only.
@@ -150,6 +185,7 @@ namespace PlanetMakey.Hits
             EnsureLabelStyle();
             DrawMarkers();
             DrawStatus();
+            DrawResult();
             GUI.color = Color.white;
         }
 
@@ -217,6 +253,20 @@ namespace PlanetMakey.Hits
 
             GUI.color = Color.white;
             GUI.Label(new Rect(18f + swatchSize, 6f, 600f, _fontSize + 8f), _statusText, _labelStyle);
+        }
+
+        private void DrawResult()
+        {
+            if (string.IsNullOrEmpty(_resultText))
+            {
+                return;
+            }
+
+            // Sits under the status line when that is shown, and in its place when it is not.
+            float top = _mouseSource != null ? 6f + _fontSize + 10f : 6f;
+
+            GUI.color = Color.white;
+            GUI.Label(new Rect(10f, top, 600f, _fontSize + 8f), _resultText, _labelStyle);
         }
 
         private Color GetDisplayColor(BallColor ballColor)
