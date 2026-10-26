@@ -20,7 +20,8 @@ shield to break it and save the cow. Keep as many cows as you can until the roos
 | `PlanetMakey/Packages/` | Package manifest |
 | `PlanetMakey/ProjectSettings/` | Unity project settings |
 | `PROTOCOL.md` | Messages the booth hardware sends to the game |
-| `DevTools/` | Scripts that fake the booth hardware, for testing the game without it |
+| `Hardware/` | The booth side: wall sensor notes and the program that sends hits to the game |
+| `DevTools/` | Test scripts: fake the booth hardware for the game, and check the real sensor |
 
 Anything that is not part of the Unity project, such as concept art and reference
 material, lives next to `PlanetMakey/` at the repository root.
