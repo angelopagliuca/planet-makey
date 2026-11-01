@@ -4,6 +4,7 @@
     "references": [
         "PlanetMakey.Core",
         "PlanetMakey.Hits",
+        "PlanetMakey.Game",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
