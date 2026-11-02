@@ -63,6 +63,9 @@ namespace PlanetMakey.Game.Ufo
         [Min(0f)]
         [SerializeField] private float _bobsPerSecond = 0.6f;
 
+        [Tooltip("How fast the daze stars circle around Makey while he is dazed, in degrees per second.")]
+        [SerializeField] private float _starSpinDegreesPerSecond = 180f;
+
         [Tooltip("Full turns made while dazed. Keep it a whole number so the model ends facing the front.")]
         [Min(0f)]
         [SerializeField] private float _dazeTurns = 3f;
@@ -108,6 +111,8 @@ namespace PlanetMakey.Game.Ufo
         [NonSerialized] private Quaternion _pivotRotation;
         [NonSerialized] private Vector3 _shieldScale;
         [NonSerialized] private bool _shieldWasEnabled;
+        [NonSerialized] private Quaternion _dazeEffectRotation;
+        [NonSerialized] private bool _sparksWereActive;
         [NonSerialized] private bool _captured;
 
         // A property block overrides the color without creating or editing a material.
@@ -148,7 +153,13 @@ namespace PlanetMakey.Game.Ufo
             _dazeShown = false;
             if (_dazeEffect != null)
             {
+                _dazeEffectRotation = _dazeEffect.transform.localRotation;
                 _dazeEffect.SetActive(false);
+            }
+
+            if (_sparks != null)
+            {
+                _sparksWereActive = _sparks.gameObject.activeSelf;
             }
 
             _shieldShown = false;
@@ -193,7 +204,13 @@ namespace PlanetMakey.Game.Ufo
 
             if (_dazeEffect != null)
             {
+                _dazeEffect.transform.localRotation = _dazeEffectRotation;
                 _dazeEffect.SetActive(false);
+            }
+
+            if (_sparks != null)
+            {
+                _sparks.gameObject.SetActive(_sparksWereActive);
             }
         }
 
@@ -243,6 +260,12 @@ namespace PlanetMakey.Game.Ufo
                 }
 
                 return;
+            }
+
+            // A particle system on an inactive object cannot emit, so switch it on when it is needed.
+            if (!_sparks.gameObject.activeSelf)
+            {
+                _sparks.gameObject.SetActive(true);
             }
 
             _sparks.transform.position = worldPoint;
@@ -347,13 +370,18 @@ namespace PlanetMakey.Game.Ufo
             }
 
             bool dazed = state == MakeyState.Dazed;
-            if (dazed == _dazeShown)
+            if (dazed != _dazeShown)
             {
-                return;
+                _dazeShown = dazed;
+                _dazeEffect.SetActive(dazed);
             }
 
-            _dazeShown = dazed;
-            _dazeEffect.SetActive(dazed);
+            if (dazed)
+            {
+                // The stars circle around Makey. The ring itself is laid out in the scene.
+                float angle = Time.time * _starSpinDegreesPerSecond;
+                _dazeEffect.transform.localRotation = _dazeEffectRotation * Quaternion.Euler(0f, angle, 0f);
+            }
         }
 
         // Flags a setup that would leave the shield invisible or wrong. The warnings always show;
@@ -387,6 +415,9 @@ namespace PlanetMakey.Game.Ufo
                 Debug.LogWarning("The shield object '" + _shield.name + "' has a collider. Remove it, or balls meant for Makey may stop at the shield.", this);
             }
 
+            CheckDazeEffect();
+            CheckSparks();
+
             if (!_debugLog)
             {
                 return;
@@ -397,6 +428,78 @@ namespace PlanetMakey.Game.Ufo
                 + ", scale " + _shieldScale.ToString("F2") + ". Palette " + (_palette != null ? _palette.name : "MISSING")
                 + ". Daze stars " + (_dazeEffect != null ? _dazeEffect.name : "not set (no stars)")
                 + ". Sparks " + (_sparks != null ? _sparks.name : "not set (no sparks)") + ".");
+        }
+
+        // The game switches only the Daze Effect object on. Its children have to be on already,
+        // and spread out, or nothing is seen.
+        private void CheckDazeEffect()
+        {
+            if (_dazeEffect == null)
+            {
+                return;
+            }
+
+            Transform root = _dazeEffect.transform;
+            int count = root.childCount;
+
+            if (count == 0)
+            {
+                if (_dazeEffect.GetComponentInChildren<Renderer>(true) == null)
+                {
+                    Debug.LogWarning("The daze effect '" + _dazeEffect.name + "' has no children and no renderer, so there is nothing to show. Add a few small stars under it.", this);
+                }
+
+                return;
+            }
+
+            int active = 0;
+            float spread = 0f;
+            Vector3 first = root.GetChild(0).localPosition;
+            for (int i = 0; i < count; i++)
+            {
+                Transform child = root.GetChild(i);
+                if (child.gameObject.activeSelf)
+                {
+                    active++;
+                }
+
+                spread = Mathf.Max(spread, Vector3.Distance(child.localPosition, first));
+            }
+
+            if (active == 0)
+            {
+                Debug.LogWarning("All " + count + " children of the daze effect '" + _dazeEffect.name
+                    + "' are switched off, and only the '" + _dazeEffect.name + "' object itself is switched on, so nothing will show. Tick the active box on the stars.", this);
+            }
+
+            bool oneStarAtCenter = count == 1 && first.sqrMagnitude < 0.0001f;
+            if ((count > 1 && spread < 0.01f) || oneStarAtCenter)
+            {
+                Debug.LogWarning("The stars under '" + _dazeEffect.name + "' sit at the same spot (or the only one is at the center), so they will not circle. Spread them in a ring around Makey's head.", this);
+            }
+        }
+
+        private void CheckSparks()
+        {
+            if (_sparks == null)
+            {
+                return;
+            }
+
+            ParticleSystemRenderer particleRenderer = _sparks.GetComponent<ParticleSystemRenderer>();
+            if (particleRenderer == null || particleRenderer.sharedMaterial == null)
+            {
+                Debug.LogWarning("The sparks particle system '" + _sparks.name + "' has no material on its renderer, so the particles will not draw. Give it a URP particle material.", this);
+            }
+
+            if (!_sparks.gameObject.activeSelf)
+            {
+                Log("The sparks object '" + _sparks.name + "' is switched off. It is switched on automatically at the first wrong-color hit.");
+            }
+            else if (!_sparks.gameObject.activeInHierarchy)
+            {
+                Debug.LogWarning("The sparks object '" + _sparks.name + "' is switched on, but something above it is switched off, so it can never emit.", this);
+            }
         }
 
         // Says what the view is doing, once for every state it sees and then once a second.

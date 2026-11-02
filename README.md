@@ -26,9 +26,20 @@ shield to break it and save the cow. Keep as many cows as you can until the roos
 Anything that is not part of the Unity project, such as concept art and reference
 material, lives next to `PlanetMakey/` at the repository root.
 
+## Farm art packs
+
+The farm environment uses purchased 3D asset packs, which their licenses do not let us
+redistribute, so they are not in this repository. They go in `PlanetMakey/Assets/_External/`
+(`SimpleFarm` and `Holotna`), which git ignores. Without them the farm scenes open with
+missing references, but the game's code still compiles and runs. To see the full scene, buy the
+packs from the Unity Asset Store and import them into that folder:
+
+- [Simple Farm - Cartoon Assets](https://assetstore.unity.com/packages/3d/environments/industrial/simple-farm-cartoon-assets-47003) (`SimpleFarm`)
+- [Farm - Stylized Fantasy Environment](https://assetstore.unity.com/packages/3d/environments/fantasy/farm-stylized-fantasy-environment-310161) (`Holotna`)
+
 ## Progress
 
-The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. No gameplay yet.
+The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield and reacts to right and wrong color hits.
 
 A box is ticked once that step has been built and tested.
 
@@ -41,7 +52,7 @@ A box is ticked once that step has been built and tested.
 
 **2. Abduction loop** (week of October 12): the core game with placeholder shapes
 
-- [ ] 2.1 Makey flies in with a colored shield and reacts to right and wrong color hits
+- [x] 2.1 Makey flies in with a colored shield and reacts to right and wrong color hits
 - [ ] 2.2 Makey abducts cows; a matching hit saves the cow
 
 **3. Round flow** (week of October 19): a full round from dusk to dawn

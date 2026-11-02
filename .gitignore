@@ -26,6 +26,11 @@
 # .meta files under Assets/ are always tracked
 !/PlanetMakey/[Aa]ssets/**/*.meta
 
+# Third-party asset packs: licensed to the people who bought them, so not redistributed here.
+# Kept after the .meta rule above so the folder and its .meta files stay ignored.
+/PlanetMakey/Assets/_External/
+/PlanetMakey/Assets/_External.meta
+
 # IDE folders and generated project files (Unity regenerates these)
 .vs/
 .idea/
