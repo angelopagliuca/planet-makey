@@ -33,6 +33,13 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Optional. Gives a burst in the ball's color when a wrong color hits. Set Play On Awake off and Simulation Space to World.")]
         [SerializeField] private ParticleSystem _sparks;
 
+        [Header("Intro animation")]
+        [Tooltip("Optional. The Animator on the model, with a controller whose Intro state holds the fly-in clip. When set, the model is hidden until Makey starts to enter, and the clip then follows his entering progress. Also tick Intro Flies In on Makey.")]
+        [SerializeField] private Animator _modelAnimator;
+
+        [Tooltip("Name of the state in the Animator that holds the fly-in clip.")]
+        [SerializeField] private string _introStateName = "Intro";
+
         [Header("Shield")]
         [Tooltip("How see-through the shield is, from 0 (invisible) to 1.")]
         [Range(0f, 1f)]
@@ -127,6 +134,25 @@ namespace PlanetMakey.Game.Ufo
         [NonSerialized] private bool _sparksWereActive;
         [NonSerialized] private bool _captured;
 
+        // The model's Animator: its settings when this component was enabled, put back when it is
+        // disabled, and where the intro stands.
+        [NonSerialized] private int _introHash;
+        [NonSerialized] private bool _modelWasActive;
+        [NonSerialized] private AnimatorCullingMode _cullingMode;
+        [NonSerialized] private bool _applyRootMotion;
+        [NonSerialized] private float _animatorSpeed;
+        [NonSerialized] private bool _introChecked;
+        [NonSerialized] private bool _introUsable;
+        [NonSerialized] private bool _introHeld;
+        [NonSerialized] private bool _animatorPrepared;
+        [NonSerialized] private bool _introTransformsLogged;
+
+        // Where the model's own object was placed in the scene. The clip rewrites it every
+        // frame, so it is put back after the clip is applied.
+        [NonSerialized] private Vector3 _modelRootPosition;
+        [NonSerialized] private Quaternion _modelRootRotation;
+        [NonSerialized] private Vector3 _modelRootScale;
+
         // A property block overrides the color without creating or editing a material.
         [NonSerialized] private MaterialPropertyBlock _block;
 
@@ -178,6 +204,8 @@ namespace PlanetMakey.Game.Ufo
             _hasLoggedState = false;
             _nextStatusLogTime = 0f;
 
+            PrepareAnimator();
+
             _makey.ShieldShattered += OnShieldShattered;
             _makey.BallDeflected += OnBallDeflected;
 
@@ -224,6 +252,8 @@ namespace PlanetMakey.Game.Ufo
             {
                 _sparks.gameObject.SetActive(_sparksWereActive);
             }
+
+            RestoreAnimator();
         }
 
         private void Update()
@@ -239,10 +269,230 @@ namespace PlanetMakey.Game.Ufo
             _rattleLeft = Mathf.Max(0f, _rattleLeft - deltaTime);
 
             MakeyState state = _makey.State;
+            UpdateIntro(state);
             UpdateShield(state);
             UpdatePivot(state);
             UpdateDazeEffect(state);
             LogState(state);
+        }
+
+        /// <summary>True if a model Animator is wired in, so the intro clip does the fly-in.</summary>
+        public bool HasIntroAnimator => _modelAnimator != null;
+
+        private void PrepareAnimator()
+        {
+            _introChecked = false;
+            _introUsable = false;
+            _introHeld = false;
+            _animatorPrepared = false;
+            _introTransformsLogged = false;
+
+            if (_modelAnimator == null)
+            {
+                return;
+            }
+
+            // The model is switched off while Makey is away. If that object were this one, or one
+            // above it, the whole view and Makey would be switched off with it.
+            // The same goes for the model pivot: the model's own object is pinned to its scene
+            // values every frame, which would undo the bob and spin of the pivot.
+            if (transform.IsChildOf(_modelAnimator.transform) || _modelPivot.IsChildOf(_modelAnimator.transform))
+            {
+                Debug.LogWarning("The Model Animator is on this object, on the model pivot, or on one above them, so the intro is not used. Wire the Animator that is on the model itself, below the model pivot.", this);
+                _introChecked = true;
+                return;
+            }
+
+            _animatorPrepared = true;
+            _introHash = Animator.StringToHash(_introStateName);
+            _modelRootPosition = _modelAnimator.transform.localPosition;
+            _modelRootRotation = _modelAnimator.transform.localRotation;
+            _modelRootScale = _modelAnimator.transform.localScale;
+            _modelWasActive = _modelAnimator.gameObject.activeSelf;
+            _cullingMode = _modelAnimator.cullingMode;
+            _applyRootMotion = _modelAnimator.applyRootMotion;
+            _animatorSpeed = _modelAnimator.speed;
+
+            // The clip starts off to one side, maybe off screen, so it must run anyway. It is
+            // stepped by hand and moves bones, not the object, so time and root motion are off.
+            _modelAnimator.cullingMode = AnimatorCullingMode.AlwaysAnimate;
+            _modelAnimator.applyRootMotion = false;
+            _modelAnimator.speed = 0f;
+
+            Log("Intro animation: Animator on '" + _modelAnimator.name + "', state '" + _introStateName
+                + "'. The model stays hidden until Makey starts to enter.");
+        }
+
+        private void RestoreAnimator()
+        {
+            if (_modelAnimator == null || !_animatorPrepared)
+            {
+                return;
+            }
+
+            // The model's own object goes back to where the scene had it, before this is cleared.
+            KeepModelRoot();
+            _animatorPrepared = false;
+
+            _modelAnimator.cullingMode = _cullingMode;
+            _modelAnimator.applyRootMotion = _applyRootMotion;
+            _modelAnimator.speed = _animatorSpeed;
+            _modelAnimator.gameObject.SetActive(_modelWasActive);
+        }
+
+        // The model is hidden while Makey is away. While he enters, the intro clip is set to the
+        // same point in its run as his entering progress, so the two always finish together
+        // whatever the enter time. After that the last frame is held, which is the idle pose.
+        private void UpdateIntro(MakeyState state)
+        {
+            if (_modelAnimator == null || (_introChecked && !_introUsable))
+            {
+                return;
+            }
+
+            GameObject modelObject = _modelAnimator.gameObject;
+
+            if (state == MakeyState.Away)
+            {
+                if (modelObject.activeSelf)
+                {
+                    modelObject.SetActive(false);
+                    Log("Model hidden until Makey starts to enter.");
+                }
+
+                _introHeld = false;
+                return;
+            }
+
+            if (!modelObject.activeSelf)
+            {
+                modelObject.SetActive(true);
+                Log("Model shown: Makey is " + state + ".");
+            }
+
+            if (!_introChecked)
+            {
+                CheckIntro();
+                if (!_introUsable)
+                {
+                    return;
+                }
+            }
+
+            if (state == MakeyState.Entering)
+            {
+                ShowIntroAt(_makey.StateProgress);
+                _introHeld = false;
+                return;
+            }
+
+            if (!_introHeld)
+            {
+                ShowIntroAt(1f);
+                _introHeld = true;
+                Log("Intro finished: holding its last frame, the idle pose.");
+            }
+        }
+
+        // Done once, the first time the model is shown, because an Animator on an object that is
+        // switched off cannot be asked about its states.
+        private void CheckIntro()
+        {
+            _introChecked = true;
+
+            if (_modelAnimator.runtimeAnimatorController == null)
+            {
+                Debug.LogWarning("The model Animator has no controller, so the intro cannot play. Make one with an '" + _introStateName + "' state.", this);
+                return;
+            }
+
+            if (!_modelAnimator.HasState(0, _introHash))
+            {
+                Debug.LogWarning("The model Animator's controller has no state called '" + _introStateName + "' on its first layer, so the intro cannot play. Rename the state, or the field on this component.", this);
+                return;
+            }
+
+            _introUsable = true;
+        }
+
+        private void ShowIntroAt(float normalizedTime)
+        {
+            // The first time, and again when the intro ends, the model's transforms are written
+            // to the Console before and after the clip is applied, to show what the clip changes.
+            bool report = _debugLog && (!_introTransformsLogged || normalizedTime >= 1f);
+            if (report)
+            {
+                LogModelTransforms("before the clip at " + normalizedTime.ToString("0.00"));
+            }
+
+            _modelAnimator.Play(_introHash, 0, normalizedTime);
+
+            // Applied now and not at the next animation update, so the first frame is never the
+            // bind pose.
+            _modelAnimator.Update(0f);
+
+            if (report)
+            {
+                LogModelTransforms("right after the clip at " + normalizedTime.ToString("0.00"));
+            }
+
+            KeepModelRoot();
+
+            if (report)
+            {
+                LogModelTransforms("after putting the model's own object back at " + normalizedTime.ToString("0.00"));
+                _introTransformsLogged = true;
+            }
+        }
+
+        // The clip has curves for the model's own object (the Blender armature: turned -90 degrees and
+        // scaled 100), so applying it overwrites the rotation and size set in the scene. The scene's
+        // values are put back here. The Animator also applies itself once more later in the frame, so
+        // this is repeated in LateUpdate, which runs after that.
+        private void KeepModelRoot()
+        {
+            if (!_animatorPrepared || _modelAnimator == null)
+            {
+                return;
+            }
+
+            Transform root = _modelAnimator.transform;
+            root.localPosition = _modelRootPosition;
+            root.localRotation = _modelRootRotation;
+            root.localScale = _modelRootScale;
+        }
+
+        private void LateUpdate()
+        {
+            // Not only when the intro is usable: a controller with another default state can rewrite
+            // the root just the same.
+            if (_captured)
+            {
+                KeepModelRoot();
+            }
+        }
+
+        // Debug text: the position, rotation and scale of the object the Animator is on and of its
+        // direct children, in the parent's space, with the root's size and turn in the world. If a
+        // clip curve overwrites the root or the armature, the numbers change between "before" and "after".
+        private void LogModelTransforms(string when)
+        {
+            Transform root = _modelAnimator.transform;
+            var text = new System.Text.StringBuilder(256);
+            text.Append("Model transforms ").Append(when).Append(". Root '").Append(root.name).Append("': local pos ")
+                .Append(root.localPosition.ToString("F2")).Append(", rot ").Append(root.localEulerAngles.ToString("F0"))
+                .Append(", scale ").Append(root.localScale.ToString("F2")).Append(" (world scale ")
+                .Append(root.lossyScale.ToString("F2")).Append(").");
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                text.Append(" Child '").Append(child.name).Append("': pos ").Append(child.localPosition.ToString("F2"))
+                    .Append(", rot ").Append(child.localEulerAngles.ToString("F0"))
+                    .Append(", scale ").Append(child.localScale.ToString("F2")).Append(".");
+            }
+
+            Log(text.ToString());
         }
 
         private void OnShieldShattered(BallColor color)

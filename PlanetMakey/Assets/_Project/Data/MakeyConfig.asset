@@ -12,6 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 253fa832d06ebde4bad6b2890860a0c6, type: 3}
   m_Name: MakeyConfig
   m_EditorClassIdentifier: PlanetMakey.Game::PlanetMakey.Game.Ufo.MakeyConfig
-  _enterSeconds: 1.5
+  _enterSeconds: 2.5
   _dazeSeconds: 3
   _recoverSeconds: 1
+  _approachSeconds: 1.2
+  _beamSeconds: 1
+  _liftSeconds: 6
+  _celebrateSeconds: 1.5

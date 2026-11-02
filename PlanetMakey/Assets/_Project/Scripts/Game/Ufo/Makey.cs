@@ -40,6 +40,9 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Fly in as soon as the game starts. A round controller will take over this later.")]
         [SerializeField] private bool _enterOnEnable = true;
 
+        [Tooltip("Tick this when the model's intro animation flies the ship in (the MakeyView has a Model Animator). Makey then appears at the hover point at once, and the animation supplies the flight. Untick it for the plain glide from the spawn point.")]
+        [SerializeField] private bool _introFliesIn;
+
         [Header("Debug")]
         [Tooltip("Write what Makey is doing to the Console: how he is wired, every state change, every ball that reaches him, and a status line once a second. Turn it off when it is no longer needed.")]
         [SerializeField] private bool _debugLog = true;
@@ -408,7 +411,9 @@ namespace PlanetMakey.Game.Ufo
             switch (state)
             {
                 case MakeyState.Entering:
-                    return "State -> Entering. Flying from " + _spawnPoint.position.ToString("F1") + " to " + _hoverPoint.position.ToString("F1")
+                    return (_introFliesIn
+                            ? "State -> Entering. At the hover point " + _hoverPoint.position.ToString("F1") + "; the intro animation flies the ship in"
+                            : "State -> Entering. Gliding from " + _spawnPoint.position.ToString("F1") + " to " + _hoverPoint.position.ToString("F1"))
                         + " over " + _config.EnterSeconds.ToString("0.0#") + " s. Balls are ignored until he arrives.";
 
                 case MakeyState.Shielded:
@@ -461,6 +466,18 @@ namespace PlanetMakey.Game.Ufo
             if (view == null)
             {
                 Debug.LogWarning("There is no MakeyView on this object, so nothing will show the shield, the daze or the hits. Add one and wire it.", this);
+            }
+
+            if (view != null)
+            {
+                if (_introFliesIn && !view.HasIntroAnimator)
+                {
+                    Debug.LogWarning("Intro Flies In is ticked, but the MakeyView has no Model Animator, so Makey will just appear at the hover point. Wire the Animator in, or untick it.", this);
+                }
+                else if (!_introFliesIn && view.HasIntroAnimator)
+                {
+                    Debug.LogWarning("The MakeyView has a Model Animator, but Intro Flies In is not ticked, so the glide and the intro animation would both move him. Tick it.", this);
+                }
             }
 
             if (_cowHerd == null)
@@ -568,8 +585,17 @@ namespace PlanetMakey.Game.Ufo
 
                 case MakeyState.Entering:
                 {
-                    float flyIn = Mathf.SmoothStep(0f, 1f, _brain.StateProgress);
-                    transform.position = Vector3.Lerp(_spawnPoint.position, _hoverPoint.position, flyIn);
+                    if (_introFliesIn)
+                    {
+                        // The animation moves the ship, so only the collider's place is set here.
+                        transform.position = _hoverPoint.position;
+                    }
+                    else
+                    {
+                        float flyIn = Mathf.SmoothStep(0f, 1f, _brain.StateProgress);
+                        transform.position = Vector3.Lerp(_spawnPoint.position, _hoverPoint.position, flyIn);
+                    }
+
                     _anchor = _hoverPoint.position;
                     break;
                 }
