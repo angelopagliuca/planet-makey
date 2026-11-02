@@ -1,5 +1,6 @@
 using System;
 using PlanetMakey.Core;
+using PlanetMakey.Game.Cows;
 using UnityEngine;
 
 namespace PlanetMakey.Game.Ufo
@@ -26,6 +27,15 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Where Makey hovers. Not a child of this object.")]
         [SerializeField] private Transform _hoverPoint;
 
+        [Tooltip("The cows Makey abducts. Leave it empty and he only guards his shield.")]
+        [SerializeField] private CowHerd _cowHerd;
+
+        [Tooltip("Where the beam starts and where a lifted cow ends up: a child of this object at the underside of the UFO.")]
+        [SerializeField] private Transform _beamOrigin;
+
+        [Tooltip("Optional. Only used for warnings: the camera the players see, to check at the start that every cow, and Makey above it, is on screen.")]
+        [SerializeField] private Camera _checkCamera;
+
         [Header("Behavior")]
         [Tooltip("Fly in as soon as the game starts. A round controller will take over this later.")]
         [SerializeField] private bool _enterOnEnable = true;
@@ -38,8 +48,15 @@ namespace PlanetMakey.Game.Ufo
         private const float StatusLogInterval = 1f;
 
         [NonSerialized] private MakeyBrain _brain;
+        [NonSerialized] private AbductionBrain _abduction;
         [NonSerialized] private bool _enterPending;
         [NonSerialized] private float _nextStatusLogTime;
+
+        // Where Makey hovers while he is not flying in or gliding over a cow, and the two ends of
+        // the glide to the cow he picked.
+        [NonSerialized] private Vector3 _anchor;
+        [NonSerialized] private Vector3 _approachFrom;
+        [NonSerialized] private Vector3 _approachTo;
 
         /// <summary>Raised after every change of state, with the new state.</summary>
         public event Action<MakeyState> StateChanged;
@@ -62,6 +79,61 @@ namespace PlanetMakey.Game.Ufo
         /// <summary>The color of the latest shield.</summary>
         public BallColor ShieldColor => _brain != null ? _brain.ShieldColor : default;
 
+        /// <summary>Raised when Makey picks a cow, with its number.</summary>
+        public event Action<int> CowTargeted;
+
+        /// <summary>Raised when a cow is lost, with its number.</summary>
+        public event Action<int> CowAbsorbed;
+
+        /// <summary>
+        /// Raised when an attempt ends with a cow picked: the cow's number, and whether it had
+        /// already started to rise.
+        /// </summary>
+        public event Action<int, bool> CowDropped;
+
+        /// <summary>Raised when Makey looks for a cow and every cow is lost.</summary>
+        public event Action HerdEmptied;
+
+        /// <summary>The herd Makey abducts from, or null if none is wired. The cow view reads it from here.</summary>
+        public CowHerd CowHerd => _cowHerd;
+
+        /// <summary>Where Makey is in an attempt to abduct a cow. Idle when there is none.</summary>
+        public AbductionPhase AbductionPhase => _abduction != null ? _abduction.Phase : AbductionPhase.Idle;
+
+        /// <summary>How far through the current abduction phase he is, 0 to 1.</summary>
+        public float AbductionProgress => _abduction != null ? _abduction.PhaseProgress : 0f;
+
+        /// <summary>The number of the cow he is abducting, or -1 when there is none.</summary>
+        public int TargetCowIndex => _abduction != null ? _abduction.TargetIndex : -1;
+
+        /// <summary>Where the beam starts. Makey's own position if no beam origin is set.</summary>
+        public Vector3 BeamOrigin => _beamOrigin != null ? _beamOrigin.position : transform.position;
+
+        /// <summary>
+        /// Where the cow he is abducting is now, in world space: on the ground until the lift
+        /// starts, then rising to <see cref="BeamOrigin"/>. Only meaningful when
+        /// <see cref="TargetCowIndex"/> is not -1. The cow and the beam both read this, so they agree.
+        /// </summary>
+        public Vector3 TargetCowPosition
+        {
+            get
+            {
+                int index = TargetCowIndex;
+                if (index < 0 || _cowHerd == null)
+                {
+                    return transform.position;
+                }
+
+                Vector3 rest = _cowHerd.RestPosition(index);
+                if (_abduction.Phase != AbductionPhase.Lifting)
+                {
+                    return rest;
+                }
+
+                return Vector3.Lerp(rest, BeamOrigin, _abduction.PhaseProgress);
+            }
+        }
+
         private void OnEnable()
         {
             if (_config == null || _spawnPoint == null || _hoverPoint == null)
@@ -77,7 +149,25 @@ namespace PlanetMakey.Game.Ufo
                 new System.Random());
             _brain.StateChanged += OnBrainStateChanged;
 
+            if (_cowHerd != null)
+            {
+                _abduction = new AbductionBrain(
+                    _cowHerd.Rules,
+                    _config.ApproachSeconds,
+                    _config.BeamSeconds,
+                    _config.LiftSeconds,
+                    _config.CelebrateSeconds,
+                    new System.Random());
+                _abduction.PhaseChanged += OnAbductionPhaseChanged;
+                _abduction.CowTargeted += OnCowTargeted;
+                _abduction.CowDropped += OnCowDropped;
+                _abduction.CowAbsorbed += OnCowAbsorbed;
+                _abduction.HerdEmpty += OnHerdEmpty;
+                _cowHerd.HerdReset += OnHerdReset;
+            }
+
             transform.position = _spawnPoint.position;
+            _anchor = _hoverPoint.position;
 
             // The first Enter waits for the first Update, so every other component has been
             // enabled and heard about the state changes.
@@ -89,11 +179,28 @@ namespace PlanetMakey.Game.Ufo
 
         private void OnDisable()
         {
+            // A cow that was being abducted goes back to the herd.
+            if (_abduction != null)
+            {
+                _abduction.Abort();
+                _abduction.PhaseChanged -= OnAbductionPhaseChanged;
+                _abduction.CowTargeted -= OnCowTargeted;
+                _abduction.CowDropped -= OnCowDropped;
+                _abduction.CowAbsorbed -= OnCowAbsorbed;
+                _abduction.HerdEmpty -= OnHerdEmpty;
+            }
+
+            if (_cowHerd != null)
+            {
+                _cowHerd.HerdReset -= OnHerdReset;
+            }
+
             if (_brain != null)
             {
                 _brain.StateChanged -= OnBrainStateChanged;
             }
 
+            _abduction = null;
             _brain = null;
             _enterPending = false;
         }
@@ -113,6 +220,12 @@ namespace PlanetMakey.Game.Ufo
             }
 
             _brain.Tick(Time.deltaTime);
+
+            if (_abduction != null)
+            {
+                _abduction.Tick(Time.deltaTime);
+            }
+
             UpdatePosition();
             LogStatus();
         }
@@ -181,6 +294,112 @@ namespace PlanetMakey.Game.Ufo
             {
                 ShieldRaised?.Invoke(_brain.ShieldColor);
             }
+
+            // A shield that is up means he hunts a cow. A shield that breaks ends the hunt.
+            if (_abduction == null)
+            {
+                return;
+            }
+
+            if (state == MakeyState.Shielded)
+            {
+                _abduction.Begin();
+            }
+            else if (state == MakeyState.Dazed || state == MakeyState.Away)
+            {
+                _abduction.Abort();
+            }
+        }
+
+        private void OnAbductionPhaseChanged(AbductionPhase phase)
+        {
+            // The glide is over: stay exactly above the cow.
+            if (phase == AbductionPhase.LoweringBeam)
+            {
+                _anchor = _approachTo;
+            }
+
+            if (_debugLog)
+            {
+                Log(DescribePhase(phase));
+            }
+        }
+
+        private void OnCowTargeted(int index)
+        {
+            _approachFrom = transform.position;
+
+            // Above the cow at his hover height, in x and z, so cows may stand anywhere in 3D.
+            Vector3 rest = _cowHerd.RestPosition(index);
+            _approachTo = new Vector3(rest.x, _hoverPoint.position.y, rest.z);
+
+            if (_debugLog)
+            {
+                Log("Picked cow " + index + " standing at " + rest.ToString("F1") + ". Gliding from " + _approachFrom.ToString("F1")
+                    + " to " + _approachTo.ToString("F1") + ".");
+            }
+
+            CowTargeted?.Invoke(index);
+        }
+
+        private void OnCowDropped(int index, bool wasLifted)
+        {
+            if (_debugLog)
+            {
+                Log("Cow " + index + " dropped " + (wasLifted ? "from the beam" : "before it left the ground") + ": the shield broke, so the attempt is over.");
+            }
+
+            CowDropped?.Invoke(index, wasLifted);
+        }
+
+        private void OnCowAbsorbed(int index)
+        {
+            if (_debugLog)
+            {
+                Log("Cow " + index + " absorbed. " + _cowHerd.Rules.RemainingCount + " of " + _cowHerd.Rules.Count + " cows are still safe.");
+            }
+
+            CowAbsorbed?.Invoke(index);
+        }
+
+        private void OnHerdEmpty()
+        {
+            Log("Every cow is lost: nothing left to abduct.");
+            HerdEmptied?.Invoke();
+        }
+
+        // The herd was reset (a new round, or the context menu): end any attempt, and hunt again
+        // if the shield is up.
+        private void OnHerdReset()
+        {
+            if (_abduction == null)
+            {
+                return;
+            }
+
+            _abduction.Abort();
+
+            if (_brain != null && _brain.State == MakeyState.Shielded)
+            {
+                _abduction.Begin();
+            }
+        }
+
+        private static string DescribePhase(AbductionPhase phase)
+        {
+            switch (phase)
+            {
+                case AbductionPhase.Approaching:
+                    return "Abduction -> Approaching. Gliding over the cow. The shield can be broken now.";
+                case AbductionPhase.LoweringBeam:
+                    return "Abduction -> LoweringBeam. Hovering over the cow while the beam reaches down.";
+                case AbductionPhase.Lifting:
+                    return "Abduction -> Lifting. The cow is rising: break the shield before it arrives.";
+                case AbductionPhase.Celebrating:
+                    return "Abduction -> Celebrating. The cow is gone and Makey celebrates.";
+                default:
+                    return "Abduction -> Idle.";
+            }
         }
 
         // Debug text for a state that was just entered.
@@ -244,6 +463,24 @@ namespace PlanetMakey.Game.Ufo
                 Debug.LogWarning("There is no MakeyView on this object, so nothing will show the shield, the daze or the hits. Add one and wire it.", this);
             }
 
+            if (_cowHerd == null)
+            {
+                Debug.LogWarning("Makey has no CowHerd, so he will not abduct anything. Wire the herd in.", this);
+            }
+            else
+            {
+                CheckCowPlacement();
+            }
+
+            if (_beamOrigin == null)
+            {
+                Debug.LogWarning("Makey has no beam origin, so the beam starts, and lifted cows end up, in the middle of him. Add a child at the underside of the UFO.", this);
+            }
+            else if (!_beamOrigin.IsChildOf(transform))
+            {
+                Debug.LogWarning("The beam origin is not a child of Makey, so it will not move with him.", this);
+            }
+
             if (!_debugLog)
             {
                 return;
@@ -257,6 +494,44 @@ namespace PlanetMakey.Game.Ufo
                 + ". MakeyView " + (view == null ? "MISSING" : "present") + ". Enter On Enable " + _enterOnEnable + ".");
         }
 
+        // With a camera wired in, warns about a cow that cannot be seen, and about Makey flying off
+        // screen above it. Both would be invisible and could not be hit.
+        private void CheckCowPlacement()
+        {
+            if (_checkCamera == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _cowHerd.Count; i++)
+            {
+                Transform cow = _cowHerd.GetCow(i);
+                if (cow == null)
+                {
+                    continue;
+                }
+
+                Vector3 rest = _cowHerd.RestPosition(i);
+                if (!IsOnScreen(rest))
+                {
+                    Debug.LogWarning("Cow " + i + " ('" + cow.name + "') at " + rest.ToString("F1") + " is outside the camera's view.", this);
+                }
+
+                Vector3 above = new Vector3(rest.x, _hoverPoint.position.y, rest.z);
+                if (!IsOnScreen(above))
+                {
+                    Debug.LogWarning("Makey would be outside the camera's view above cow " + i + " ('" + cow.name + "') at " + above.ToString("F1")
+                        + ". Move the cow, or lower the hover point.", this);
+                }
+            }
+        }
+
+        private bool IsOnScreen(Vector3 point)
+        {
+            Vector3 view = _checkCamera.WorldToViewportPoint(point);
+            return view.z > 0f && view.x >= 0f && view.x <= 1f && view.y >= 0f && view.y <= 1f;
+        }
+
         // One status line a second, so a quiet Makey can be told apart from a stuck one.
         private void LogStatus()
         {
@@ -267,7 +542,9 @@ namespace PlanetMakey.Game.Ufo
 
             _nextStatusLogTime = Time.unscaledTime + StatusLogInterval;
             Log("Status: " + _brain.State + ", " + Mathf.RoundToInt(_brain.StateProgress * 100f) + "% through the state, shield "
-                + _brain.ShieldColor + ", at " + transform.position.ToString("F1") + ".");
+                + _brain.ShieldColor + ", at " + transform.position.ToString("F1") + ". Abduction: " + AbductionPhase
+                + (TargetCowIndex >= 0 ? " of cow " + TargetCowIndex + ", " + Mathf.RoundToInt(AbductionProgress * 100f) + "% through the phase" : "")
+                + (_cowHerd != null ? ". Cows safe: " + _cowHerd.Rules.RemainingCount + " of " + _cowHerd.Rules.Count : "") + ".");
         }
 
         private void Log(string message)
@@ -283,17 +560,33 @@ namespace PlanetMakey.Game.Ufo
             switch (_brain.State)
             {
                 case MakeyState.Away:
+                {
                     transform.position = _spawnPoint.position;
+                    _anchor = _hoverPoint.position;
                     break;
+                }
 
                 case MakeyState.Entering:
-                    float eased = Mathf.SmoothStep(0f, 1f, _brain.StateProgress);
-                    transform.position = Vector3.Lerp(_spawnPoint.position, _hoverPoint.position, eased);
+                {
+                    float flyIn = Mathf.SmoothStep(0f, 1f, _brain.StateProgress);
+                    transform.position = Vector3.Lerp(_spawnPoint.position, _hoverPoint.position, flyIn);
+                    _anchor = _hoverPoint.position;
                     break;
+                }
 
                 default:
-                    transform.position = _hoverPoint.position;
+                {
+                    // He stays where he is, except while he glides over the cow he picked. If the
+                    // shield breaks mid-glide he simply stops there.
+                    if (_abduction != null && _abduction.Phase == AbductionPhase.Approaching)
+                    {
+                        float glide = Mathf.SmoothStep(0f, 1f, _abduction.PhaseProgress);
+                        _anchor = Vector3.Lerp(_approachFrom, _approachTo, glide);
+                    }
+
+                    transform.position = _anchor;
                     break;
+                }
             }
         }
     }

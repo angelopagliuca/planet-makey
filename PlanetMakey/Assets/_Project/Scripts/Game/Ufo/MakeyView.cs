@@ -90,6 +90,18 @@ namespace PlanetMakey.Game.Ufo
         [Min(0f)]
         [SerializeField] private float _rattleCycles = 3f;
 
+        [Tooltip("Hops Makey makes while he celebrates an absorbed cow.")]
+        [Min(0f)]
+        [SerializeField] private float _celebrateHops = 3f;
+
+        [Tooltip("How high each celebration hop goes, in meters.")]
+        [Min(0f)]
+        [SerializeField] private float _celebrateHopHeight = 0.4f;
+
+        [Tooltip("How far the model wiggles from side to side while it celebrates, in degrees.")]
+        [Min(0f)]
+        [SerializeField] private float _celebrateWiggleDegrees = 20f;
+
         [Header("Debug")]
         [Tooltip("Write what the view shows to the Console: how it is wired, every state it sees, every effect it starts, and a status line once a second. Turn it off when it is no longer needed.")]
         [SerializeField] private bool _debugLog = true;
@@ -348,6 +360,15 @@ namespace PlanetMakey.Game.Ufo
                 float progress = _makey.StateProgress;
                 float swing = Mathf.Sin(progress * _headShakeCycles * 2f * Mathf.PI) * _headShakeDegrees * (1f - progress);
                 rotation = _pivotRotation * Quaternion.Euler(0f, swing, 0f);
+            }
+
+            if (_makey.AbductionPhase == AbductionPhase.Celebrating)
+            {
+                // Hops and wiggles, ending where it started.
+                float progress = _makey.AbductionProgress;
+                position.y += Mathf.Abs(Mathf.Sin(progress * _celebrateHops * Mathf.PI)) * _celebrateHopHeight;
+                float wiggle = Mathf.Sin(progress * _celebrateHops * 2f * Mathf.PI) * _celebrateWiggleDegrees;
+                rotation *= Quaternion.Euler(0f, 0f, wiggle);
             }
 
             if (_rattleLeft > 0f)
