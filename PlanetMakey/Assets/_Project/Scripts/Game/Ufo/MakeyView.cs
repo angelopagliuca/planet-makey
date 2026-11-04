@@ -40,6 +40,9 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Name of the state in the Animator that holds the fly-in clip.")]
         [SerializeField] private string _introStateName = "Intro";
 
+        [Tooltip("Name of the state in the Animator that holds the escape clip, played while Makey leaves at the end of a round. If the controller has no such state, he just stays in the idle pose until he is hidden.")]
+        [SerializeField] private string _escapeStateName = "Escape";
+
         [Header("Shield")]
         [Tooltip("How see-through the shield is, from 0 (invisible) to 1.")]
         [Range(0f, 1f)]
@@ -137,6 +140,8 @@ namespace PlanetMakey.Game.Ufo
         // The model's Animator: its settings when this component was enabled, put back when it is
         // disabled, and where the intro stands.
         [NonSerialized] private int _introHash;
+        [NonSerialized] private int _escapeHash;
+        [NonSerialized] private bool _escapeUsable;
         [NonSerialized] private bool _modelWasActive;
         [NonSerialized] private AnimatorCullingMode _cullingMode;
         [NonSerialized] private bool _applyRootMotion;
@@ -283,6 +288,7 @@ namespace PlanetMakey.Game.Ufo
         {
             _introChecked = false;
             _introUsable = false;
+            _escapeUsable = false;
             _introHeld = false;
             _animatorPrepared = false;
             _introTransformsLogged = false;
@@ -305,6 +311,7 @@ namespace PlanetMakey.Game.Ufo
 
             _animatorPrepared = true;
             _introHash = Animator.StringToHash(_introStateName);
+            _escapeHash = Animator.StringToHash(_escapeStateName);
             _modelRootPosition = _modelAnimator.transform.localPosition;
             _modelRootRotation = _modelAnimator.transform.localRotation;
             _modelRootScale = _modelAnimator.transform.localScale;
@@ -343,6 +350,7 @@ namespace PlanetMakey.Game.Ufo
         // The model is hidden while Makey is away. While he enters, the intro clip is set to the
         // same point in its run as his entering progress, so the two always finish together
         // whatever the enter time. After that the last frame is held, which is the idle pose.
+        // While he leaves, the escape clip is scrubbed the same way, and then he is Away again.
         private void UpdateIntro(MakeyState state)
         {
             if (_modelAnimator == null || (_introChecked && !_introUsable))
@@ -381,14 +389,21 @@ namespace PlanetMakey.Game.Ufo
 
             if (state == MakeyState.Entering)
             {
-                ShowIntroAt(_makey.StateProgress);
+                ShowClipAt(_introHash, _makey.StateProgress);
+                _introHeld = false;
+                return;
+            }
+
+            if (state == MakeyState.Leaving && _escapeUsable)
+            {
+                ShowClipAt(_escapeHash, _makey.StateProgress);
                 _introHeld = false;
                 return;
             }
 
             if (!_introHeld)
             {
-                ShowIntroAt(1f);
+                ShowClipAt(_introHash, 1f);
                 _introHeld = true;
                 Log("Intro finished: holding its last frame, the idle pose.");
             }
@@ -413,11 +428,22 @@ namespace PlanetMakey.Game.Ufo
             }
 
             _introUsable = true;
+
+            // The escape clip is optional: without it Makey keeps his idle pose until he is hidden.
+            if (_modelAnimator.HasState(0, _escapeHash))
+            {
+                _escapeUsable = true;
+            }
+            else
+            {
+                Debug.LogWarning("The model Animator's controller has no state called '" + _escapeStateName + "' on its first layer, so Makey will not fly off with the escape clip at the end of a round. Add the state, or rename the field on this component.", this);
+            }
         }
 
-        private void ShowIntroAt(float normalizedTime)
+        // Puts the clip in the given Animator state at this point in its run (0 to 1).
+        private void ShowClipAt(int stateHash, float normalizedTime)
         {
-            // The first time, and again when the intro ends, the model's transforms are written
+            // The first time, and again when a clip ends, the model's transforms are written
             // to the Console before and after the clip is applied, to show what the clip changes.
             bool report = _debugLog && (!_introTransformsLogged || normalizedTime >= 1f);
             if (report)
@@ -425,7 +451,7 @@ namespace PlanetMakey.Game.Ufo
                 LogModelTransforms("before the clip at " + normalizedTime.ToString("0.00"));
             }
 
-            _modelAnimator.Play(_introHash, 0, normalizedTime);
+            _modelAnimator.Play(stateHash, 0, normalizedTime);
 
             // Applied now and not at the next animation update, so the first frame is never the
             // bind pose.
@@ -818,6 +844,8 @@ namespace PlanetMakey.Game.Ufo
                         + (_dazeEffect != null ? " and the stars are on." : " (no stars set).");
                 case MakeyState.Recovering:
                     return "Shield hidden; the head swings side to side " + _headShakeCycles.ToString("0.#") + " times.";
+                case MakeyState.Leaving:
+                    return "Shield hidden; he flies off" + (_escapeUsable ? " with the escape clip." : " (no escape clip: he keeps his idle pose until hidden).");
                 default:
                     return string.Empty;
             }

@@ -11,10 +11,16 @@ namespace PlanetMakey.Tests.EditMode
         private const float EnterSeconds = 1f;
         private const float DazeSeconds = 2f;
         private const float RecoverSeconds = 1f;
+        private const float LeaveSeconds = 3f;
 
         private static MakeyBrain NewBrain(int seed = 1)
         {
             return new MakeyBrain(EnterSeconds, DazeSeconds, RecoverSeconds, new Random(seed));
+        }
+
+        private static MakeyBrain NewLeavingCapableBrain()
+        {
+            return new MakeyBrain(EnterSeconds, DazeSeconds, RecoverSeconds, LeaveSeconds, new Random(1));
         }
 
         private static MakeyBrain ShieldedBrain(int seed = 1)
@@ -317,6 +323,117 @@ namespace PlanetMakey.Tests.EditMode
         public void Constructor_WithoutARandom_Throws()
         {
             Assert.Throws<ArgumentNullException>(() => new MakeyBrain(1f, 1f, 1f, null));
+            Assert.Throws<ArgumentNullException>(() => new MakeyBrain(1f, 1f, 1f, 1f, null));
+        }
+
+        [Test]
+        public void Leave_FromEveryStateButAway_StartsLeaving()
+        {
+            MakeyBrain entering = NewLeavingCapableBrain();
+            entering.Enter();
+            entering.Leave();
+            Assert.That(entering.State, Is.EqualTo(MakeyState.Leaving), "entering");
+
+            MakeyBrain shielded = NewLeavingCapableBrain();
+            shielded.Enter();
+            shielded.Tick(EnterSeconds);
+            shielded.Leave();
+            Assert.That(shielded.State, Is.EqualTo(MakeyState.Leaving), "shielded");
+
+            MakeyBrain dazed = NewLeavingCapableBrain();
+            dazed.Enter();
+            dazed.Tick(EnterSeconds);
+            dazed.ReceiveBall(dazed.ShieldColor);
+            dazed.Leave();
+            Assert.That(dazed.State, Is.EqualTo(MakeyState.Leaving), "dazed");
+
+            MakeyBrain recovering = NewLeavingCapableBrain();
+            recovering.Enter();
+            recovering.Tick(EnterSeconds);
+            recovering.ReceiveBall(recovering.ShieldColor);
+            recovering.Tick(DazeSeconds);
+            recovering.Leave();
+            Assert.That(recovering.State, Is.EqualTo(MakeyState.Leaving), "recovering");
+        }
+
+        [Test]
+        public void Leave_WhileAwayOrAlreadyLeaving_DoesNothing()
+        {
+            MakeyBrain brain = NewLeavingCapableBrain();
+            var states = new List<MakeyState>();
+            brain.StateChanged += states.Add;
+
+            brain.Leave();
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Away));
+            Assert.That(states, Is.Empty);
+
+            brain.Enter();
+            brain.Leave();
+            brain.Tick(1f);
+            brain.Leave();
+
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Leaving));
+            Assert.That(brain.StateProgress, Is.EqualTo(1f / LeaveSeconds).Within(1e-5f));
+            Assert.That(states, Is.EqualTo(new[] { MakeyState.Entering, MakeyState.Leaving }));
+        }
+
+        [Test]
+        public void Leaving_LastsTheLeaveTime_ThenMakeyIsAway_AndCanEnterAgain()
+        {
+            MakeyBrain brain = ShieldedLeavingBrain();
+            brain.Leave();
+
+            brain.Tick(LeaveSeconds - 0.5f);
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Leaving));
+            Assert.That(brain.StateProgress, Is.EqualTo((LeaveSeconds - 0.5f) / LeaveSeconds).Within(1e-5f));
+
+            brain.Tick(0.5f);
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Away));
+            Assert.That(brain.StateProgress, Is.EqualTo(0f));
+
+            brain.Enter();
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Entering));
+        }
+
+        [Test]
+        public void Balls_AreIgnored_WhileLeaving()
+        {
+            MakeyBrain brain = ShieldedLeavingBrain();
+            brain.Leave();
+
+            AssertEveryColorIgnored(brain);
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Leaving));
+        }
+
+        [Test]
+        public void Leaving_WithAHugeStep_EndsOnlyThatState()
+        {
+            MakeyBrain brain = ShieldedLeavingBrain();
+            brain.Leave();
+
+            brain.Tick(1000f);
+
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Away));
+        }
+
+        [Test]
+        public void TheFourArgumentConstructor_LeavesInstantly()
+        {
+            MakeyBrain brain = ShieldedBrain();
+            brain.Leave();
+            Assert.That(brain.StateProgress, Is.EqualTo(1f));
+
+            brain.Tick(0.001f);
+
+            Assert.That(brain.State, Is.EqualTo(MakeyState.Away));
+        }
+
+        private static MakeyBrain ShieldedLeavingBrain()
+        {
+            MakeyBrain brain = NewLeavingCapableBrain();
+            brain.Enter();
+            brain.Tick(EnterSeconds);
+            return brain;
         }
     }
 }

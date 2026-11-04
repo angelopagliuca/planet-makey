@@ -21,6 +21,10 @@ namespace PlanetMakey.Game.Ufo
         [Min(0f)]
         [SerializeField] private float _recoverSeconds = 1f;
 
+        [Tooltip("Seconds Makey takes to fly off screen when the round ends. Match the length of the Escape animation clip (about 4.1). Balls do not count.")]
+        [Min(0f)]
+        [SerializeField] private float _leaveSeconds = 4.1f;
+
         [Header("Abduction")]
         [Tooltip("Seconds Makey takes to glide over the cow he picked.")]
         [Min(0f)]
@@ -46,6 +50,9 @@ namespace PlanetMakey.Game.Ufo
 
         /// <summary>Seconds spent recovering before the next shield.</summary>
         public float RecoverSeconds => _recoverSeconds;
+
+        /// <summary>Seconds spent flying off screen at the end of a round.</summary>
+        public float LeaveSeconds => _leaveSeconds;
 
         /// <summary>Seconds spent gliding over the cow.</summary>
         public float ApproachSeconds => _approachSeconds;

@@ -39,7 +39,7 @@ packs from the Unity Asset Store and import them into that folder:
 
 ## Progress
 
-The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield and reacts to right and wrong color hits.
+The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield, reacts to right and wrong color hits, and abducts the cows one by one until the shield is broken. Next up is a full three-minute round.
 
 A box is ticked once that step has been built and tested.
 
@@ -53,7 +53,7 @@ A box is ticked once that step has been built and tested.
 **2. Abduction loop** (week of October 12): the core game with placeholder shapes
 
 - [x] 2.1 Makey flies in with a colored shield and reacts to right and wrong color hits
-- [ ] 2.2 Makey abducts cows; a matching hit saves the cow
+- [x] 2.2 Makey abducts cows; a matching hit saves the cow
 
 **3. Round flow** (week of October 19): a full round from dusk to dawn
 

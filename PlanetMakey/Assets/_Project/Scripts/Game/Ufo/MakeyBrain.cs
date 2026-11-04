@@ -10,7 +10,8 @@ namespace PlanetMakey.Game.Ufo
     /// <remarks>
     /// Away, then Enter, then Entering for the enter time, then Shielded. A ball of the shield's
     /// color breaks it: Dazed, then Recovering, then Shielded again with a new color. Balls only
-    /// count while Shielded. One <see cref="Tick"/> moves at most one state, so a long frame
+    /// count while Shielded. <see cref="Leave"/> sends him off from any state: Leaving for the leave
+    /// time, then Away again. One <see cref="Tick"/> moves at most one state, so a long frame
     /// cannot skip the dazed or recovering time.
     /// </remarks>
     public sealed class MakeyBrain
@@ -18,6 +19,7 @@ namespace PlanetMakey.Game.Ufo
         private readonly float _enterSeconds;
         private readonly float _dazeSeconds;
         private readonly float _recoverSeconds;
+        private readonly float _leaveSeconds;
         private readonly Random _random;
         private readonly int _colorCount;
 
@@ -30,6 +32,16 @@ namespace PlanetMakey.Game.Ufo
         /// <param name="recoverSeconds">Time spent recovering before the next shield.</param>
         /// <param name="random">Picks the shield colors. Pass a seeded one to repeat a run.</param>
         public MakeyBrain(float enterSeconds, float dazeSeconds, float recoverSeconds, Random random)
+            : this(enterSeconds, dazeSeconds, recoverSeconds, 0f, random)
+        {
+        }
+
+        /// <param name="enterSeconds">Time spent flying in. Negative values count as zero.</param>
+        /// <param name="dazeSeconds">Time spent dazed after a shield breaks.</param>
+        /// <param name="recoverSeconds">Time spent recovering before the next shield.</param>
+        /// <param name="leaveSeconds">Time spent flying off screen after <see cref="Leave"/>.</param>
+        /// <param name="random">Picks the shield colors. Pass a seeded one to repeat a run.</param>
+        public MakeyBrain(float enterSeconds, float dazeSeconds, float recoverSeconds, float leaveSeconds, Random random)
         {
             if (random == null)
             {
@@ -39,6 +51,7 @@ namespace PlanetMakey.Game.Ufo
             _enterSeconds = Math.Max(0f, enterSeconds);
             _dazeSeconds = Math.Max(0f, dazeSeconds);
             _recoverSeconds = Math.Max(0f, recoverSeconds);
+            _leaveSeconds = Math.Max(0f, leaveSeconds);
             _random = random;
             _colorCount = Enum.GetValues(typeof(BallColor)).Length;
             State = MakeyState.Away;
@@ -48,8 +61,8 @@ namespace PlanetMakey.Game.Ufo
         public MakeyState State { get; private set; }
 
         /// <summary>
-        /// How far through the current Entering, Dazed or Recovering state Makey is, from 0 to 1.
-        /// It is 0 in the other states.
+        /// How far through the current Entering, Dazed, Recovering or Leaving state Makey is, from
+        /// 0 to 1. It is 0 in the other states.
         /// </summary>
         public float StateProgress
         {
@@ -91,6 +104,20 @@ namespace PlanetMakey.Game.Ufo
         }
 
         /// <summary>
+        /// Sends Makey off screen, from any state except Away and Leaving (which it ignores). After
+        /// the leave time he is Away, and <see cref="Enter"/> works again.
+        /// </summary>
+        public void Leave()
+        {
+            if (State == MakeyState.Away || State == MakeyState.Leaving)
+            {
+                return;
+            }
+
+            SetState(MakeyState.Leaving);
+        }
+
+        /// <summary>
         /// Moves time forward. Zero, negative and NaN steps are ignored. A step that is longer
         /// than the current state's remaining time ends that state and nothing more.
         /// </summary>
@@ -127,6 +154,15 @@ namespace PlanetMakey.Game.Ufo
                     if (_stateTime >= _recoverSeconds)
                     {
                         RaiseShield();
+                    }
+
+                    break;
+
+                case MakeyState.Leaving:
+                    _stateTime += deltaTime;
+                    if (_stateTime >= _leaveSeconds)
+                    {
+                        SetState(MakeyState.Away);
                     }
 
                     break;
@@ -186,6 +222,8 @@ namespace PlanetMakey.Game.Ufo
                     return _dazeSeconds;
                 case MakeyState.Recovering:
                     return _recoverSeconds;
+                case MakeyState.Leaving:
+                    return _leaveSeconds;
                 default:
                     return 0f;
             }

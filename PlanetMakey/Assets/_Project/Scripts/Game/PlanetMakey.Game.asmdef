@@ -2,7 +2,9 @@
     "name": "PlanetMakey.Game",
     "rootNamespace": "PlanetMakey.Game",
     "references": [
-        "PlanetMakey.Core"
+        "PlanetMakey.Core",
+        "Unity.InputSystem",
+        "Unity.TextMeshPro"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

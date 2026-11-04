@@ -18,6 +18,9 @@ namespace PlanetMakey.Game.Ufo
         Dazed,
 
         /// <summary>Shaking his head clear. Still cannot be hurt.</summary>
-        Recovering
+        Recovering,
+
+        /// <summary>Flying off screen at the end of a round. Balls are ignored; then he is Away.</summary>
+        Leaving
     }
 }

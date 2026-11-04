@@ -37,10 +37,10 @@ namespace PlanetMakey.Game.Ufo
         [SerializeField] private Camera _checkCamera;
 
         [Header("Behavior")]
-        [Tooltip("Fly in as soon as the game starts. A round controller will take over this later.")]
+        [Tooltip("Fly in as soon as the game starts. Untick it when a RoundController sends Makey in at the start of the night.")]
         [SerializeField] private bool _enterOnEnable = true;
 
-        [Tooltip("Tick this when the model's intro animation flies the ship in (the MakeyView has a Model Animator). Makey then appears at the hover point at once, and the animation supplies the flight. Untick it for the plain glide from the spawn point.")]
+        [Tooltip("Tick this when the model's animations fly the ship in and out (the MakeyView has a Model Animator). Makey then appears at the hover point at once, stays there while he leaves, and the animations supply the flights. Untick it for the plain glide from and to the spawn point.")]
         [SerializeField] private bool _introFliesIn;
 
         [Header("Debug")]
@@ -100,6 +100,12 @@ namespace PlanetMakey.Game.Ufo
         /// <summary>The herd Makey abducts from, or null if none is wired. The cow view reads it from here.</summary>
         public CowHerd CowHerd => _cowHerd;
 
+        /// <summary>True if Makey flies in by himself when the game starts, so a round controller is not in charge of him.</summary>
+        public bool EntersOnEnable => _enterOnEnable;
+
+        /// <summary>How long he takes to fly off screen, in seconds. 0 if no config is wired. The round controller checks it against the dawn time.</summary>
+        public float LeaveSeconds => _config != null ? _config.LeaveSeconds : 0f;
+
         /// <summary>Where Makey is in an attempt to abduct a cow. Idle when there is none.</summary>
         public AbductionPhase AbductionPhase => _abduction != null ? _abduction.Phase : AbductionPhase.Idle;
 
@@ -149,6 +155,7 @@ namespace PlanetMakey.Game.Ufo
                 _config.EnterSeconds,
                 _config.DazeSeconds,
                 _config.RecoverSeconds,
+                _config.LeaveSeconds,
                 new System.Random());
             _brain.StateChanged += OnBrainStateChanged;
 
@@ -249,6 +256,25 @@ namespace PlanetMakey.Game.Ufo
             _brain.Enter();
         }
 
+        /// <summary>
+        /// Sends Makey off screen at the end of a round, from any state. An abduction in progress
+        /// is aborted and its cow goes back to the herd. Does nothing if he is Away or already leaving.
+        /// </summary>
+        public void Leave()
+        {
+            if (_brain == null)
+            {
+                return;
+            }
+
+            if (_debugLog && (_brain.State == MakeyState.Away || _brain.State == MakeyState.Leaving))
+            {
+                Log("Leave() ignored: Makey is already " + _brain.State + ".");
+            }
+
+            _brain.Leave();
+        }
+
         /// <inheritdoc />
         public void ReceiveBall(BallColor color, Vector3 worldPoint)
         {
@@ -308,7 +334,7 @@ namespace PlanetMakey.Game.Ufo
             {
                 _abduction.Begin();
             }
-            else if (state == MakeyState.Dazed || state == MakeyState.Away)
+            else if (state == MakeyState.Dazed || state == MakeyState.Leaving || state == MakeyState.Away)
             {
                 _abduction.Abort();
             }
@@ -426,6 +452,12 @@ namespace PlanetMakey.Game.Ufo
                 case MakeyState.Recovering:
                     return "State -> Recovering for " + _config.RecoverSeconds.ToString("0.0#")
                         + " s. Balls are still ignored; then a new shield goes up in a different color.";
+
+                case MakeyState.Leaving:
+                    return (_introFliesIn
+                            ? "State -> Leaving. Staying at the hover point " + _hoverPoint.position.ToString("F1") + "; the escape animation flies the ship off"
+                            : "State -> Leaving. Gliding from the hover point to " + _spawnPoint.position.ToString("F1"))
+                        + " over " + _config.LeaveSeconds.ToString("0.0#") + " s. Balls are ignored; any abduction is aborted.";
 
                 default:
                     return "State -> " + state + ".";
@@ -597,6 +629,24 @@ namespace PlanetMakey.Game.Ufo
                     }
 
                     _anchor = _hoverPoint.position;
+                    break;
+                }
+
+                case MakeyState.Leaving:
+                {
+                    // With the escape animation he stays put and the animation supplies the flight.
+                    // Otherwise he glides from where he was to the spawn point. The anchor is kept,
+                    // so the glide starts from the same place for the whole state.
+                    if (_introFliesIn)
+                    {
+                        transform.position = _anchor;
+                    }
+                    else
+                    {
+                        float flyOut = Mathf.SmoothStep(0f, 1f, _brain.StateProgress);
+                        transform.position = Vector3.Lerp(_anchor, _spawnPoint.position, flyOut);
+                    }
+
                     break;
                 }
 
