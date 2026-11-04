@@ -39,7 +39,7 @@ packs from the Unity Asset Store and import them into that folder:
 
 ## Progress
 
-The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield, reacts to right and wrong color hits, and abducts the cows one by one until the shield is broken. Next up is a full three-minute round.
+The hit pipeline is done: a ball hit arrives from a mouse click or from the booth hardware over the network, is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield, reacts to right and wrong color hits, and abducts the cows one by one until the shield is broken. A full three-minute round now runs from dusk to dawn: an operator starts it with a key, the players defend the herd, and the cows left at dawn are the score. The booth's start button can start a round by network message, and an operator panel shows the state of the round, the latest hit and the hardware link, with a way to cancel a round. Next up is sound and animation for every event, and making the game run unattended as a fullscreen build.
 
 A box is ticked once that step has been built and tested.
 
@@ -57,8 +57,8 @@ A box is ticked once that step has been built and tested.
 
 **3. Round flow** (week of October 19): a full round from dusk to dawn
 
-- [ ] 3.1 A three-minute night with a score at dawn, then back to idle
-- [ ] 3.2 Operator screen and a start signal from the booth
+- [x] 3.1 A three-minute night with a score at dawn, then back to idle
+- [x] 3.2 Operator screen and a start signal from the booth
 - [ ] 3.3 Difficulty rises through the night (optional)
 
 **4. Booth readiness** (week of October 26): ready for a full day at the faire

@@ -135,12 +135,18 @@ namespace PlanetMakey.Game.Round
 
         /// <summary>
         /// Starts a round, the same way a start source does. Returns false, and does nothing,
-        /// unless the round is Idle.
+        /// unless the round is Idle and Makey is gone (after an abort he may still be flying off).
         /// </summary>
         public bool RequestStart()
         {
             if (_brain == null)
             {
+                return false;
+            }
+
+            if (_brain.State == RoundState.Idle && _makey.State != MakeyState.Away)
+            {
+                Log("Start request ignored: Makey is still " + _makey.State + ". Try again when he is gone.");
                 return false;
             }
 
@@ -151,6 +157,30 @@ namespace PlanetMakey.Game.Round
             }
 
             return started;
+        }
+
+        /// <summary>
+        /// Cancels the round during dusk or night: Makey flies off, a lifted cow drops back, there
+        /// is no score, and the round is Idle at once. Returns false, and does nothing, in Idle and
+        /// at dawn.
+        /// </summary>
+        public bool Abort()
+        {
+            if (_brain == null)
+            {
+                return false;
+            }
+
+            if (!_brain.Abort())
+            {
+                Log("Abort ignored: the round is " + _brain.State + ", and only dusk or night can be aborted.");
+                return false;
+            }
+
+            _score = 0;
+            _makey.Leave();
+            Log("Round aborted by the operator. Makey is sent off and there is no score.");
+            return true;
         }
 
         private void OnStartRequested()
@@ -254,7 +284,7 @@ namespace PlanetMakey.Game.Round
             if (_config.DawnSeconds < _makey.LeaveSeconds)
             {
                 Debug.LogWarning("Dawn Seconds (" + _config.DawnSeconds.ToString("0.0#") + ") is shorter than Makey's Leave Seconds ("
-                    + _makey.LeaveSeconds.ToString("0.0#") + "). A round started right after the dawn would find him still leaving, and he would not fly in.", this);
+                    + _makey.LeaveSeconds.ToString("0.0#") + "). A start request right after the dawn would be ignored until he is gone, so the booth would seem to ignore the button for a moment.", this);
             }
 
             Log("Enabled. Config " + _config.name + ": dusk " + _config.DuskSeconds.ToString("0.0#") + " s, night "

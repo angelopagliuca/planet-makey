@@ -101,6 +101,22 @@ namespace PlanetMakey.Game.Round
         }
 
         /// <summary>
+        /// Cancels the round, straight back to Idle. Only Dusk and Night can be aborted: in Idle there
+        /// is nothing to cancel, and Dawn is the end of a round that already finished.
+        /// </summary>
+        /// <returns>True if the round was aborted.</returns>
+        public bool Abort()
+        {
+            if (State != RoundState.Dusk && State != RoundState.Night)
+            {
+                return false;
+            }
+
+            SetState(RoundState.Idle);
+            return true;
+        }
+
+        /// <summary>
         /// Moves time forward. Zero, negative and NaN steps are ignored. A step longer than the
         /// current state's remaining time ends that state and nothing more.
         /// </summary>

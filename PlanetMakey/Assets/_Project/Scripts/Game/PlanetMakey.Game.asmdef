@@ -3,6 +3,7 @@
     "rootNamespace": "PlanetMakey.Game",
     "references": [
         "PlanetMakey.Core",
+        "PlanetMakey.Hits",
         "Unity.InputSystem",
         "Unity.TextMeshPro"
     ],

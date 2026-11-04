@@ -259,5 +259,73 @@ namespace PlanetMakey.Tests.EditMode
             Assert.That(brain.State, Is.EqualTo(RoundState.Night));
             Assert.That(brain.NightSecondsLeft, Is.EqualTo(0f));
         }
+
+        [Test]
+        public void Abort_DuringDusk_GoesStraightToIdle()
+        {
+            RoundBrain brain = NewBrain();
+            brain.RequestStart();
+            brain.Tick(1f);
+
+            bool aborted = brain.Abort();
+
+            Assert.That(aborted, Is.True);
+            Assert.That(brain.State, Is.EqualTo(RoundState.Idle));
+            Assert.That(brain.StateProgress, Is.EqualTo(0f));
+        }
+
+        [Test]
+        public void Abort_DuringNight_GoesStraightToIdle_AndTheNextRoundStartsFresh()
+        {
+            RoundBrain brain = NightBrain();
+            brain.Tick(6f);
+
+            bool aborted = brain.Abort();
+
+            Assert.That(aborted, Is.True);
+            Assert.That(brain.State, Is.EqualTo(RoundState.Idle));
+            Assert.That(brain.NightSecondsLeft, Is.EqualTo(NightSeconds));
+
+            Assert.That(brain.RequestStart(), Is.True);
+            Assert.That(brain.State, Is.EqualTo(RoundState.Dusk));
+            Assert.That(brain.StateProgress, Is.EqualTo(0f));
+
+            brain.Tick(DuskSeconds);
+            Assert.That(brain.State, Is.EqualTo(RoundState.Night));
+            Assert.That(brain.NightSecondsLeft, Is.EqualTo(NightSeconds).Within(1e-5f));
+        }
+
+        [Test]
+        public void Abort_InIdleOrDawn_IsIgnored()
+        {
+            RoundBrain brain = NewBrain();
+            Assert.That(brain.Abort(), Is.False, "idle");
+            Assert.That(brain.State, Is.EqualTo(RoundState.Idle));
+
+            brain.RequestStart();
+            brain.Tick(DuskSeconds);
+            brain.Tick(NightSeconds);
+            Assert.That(brain.State, Is.EqualTo(RoundState.Dawn));
+
+            Assert.That(brain.Abort(), Is.False, "dawn");
+            Assert.That(brain.State, Is.EqualTo(RoundState.Dawn));
+        }
+
+        [Test]
+        public void Abort_RaisesStateChangedOnce_AndNothingWhenIgnored()
+        {
+            RoundBrain brain = NewBrain();
+            var states = new List<RoundState>();
+            brain.StateChanged += states.Add;
+
+            brain.Abort();
+            Assert.That(states, Is.Empty);
+
+            brain.RequestStart();
+            brain.Abort();
+            brain.Abort();
+
+            Assert.That(states, Is.EqualTo(new[] { RoundState.Dusk, RoundState.Idle }));
+        }
     }
 }

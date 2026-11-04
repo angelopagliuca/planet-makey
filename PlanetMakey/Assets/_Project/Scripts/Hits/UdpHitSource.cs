@@ -28,8 +28,22 @@ namespace PlanetMakey.Hits
         [NonSerialized] private UdpClient _client;
         [NonSerialized] private IPEndPoint _remote;
 
+        [NonSerialized] private float _lastMessageTime;
+
+        /// <summary>Raised on the main thread each time a valid <c>START</c> message arrives.</summary>
+        public event Action StartReceived;
+
         /// <summary>The port this source listens on.</summary>
         public int Port => _port;
+
+        /// <summary>True once any packet, valid or not, has arrived since this component was enabled.</summary>
+        public bool HasReceived { get; private set; }
+
+        /// <summary>
+        /// Seconds since the latest packet, valid or not, in unscaled time. -1 before the first one.
+        /// It tells the operator whether the hardware is still talking.
+        /// </summary>
+        public float SecondsSinceLastMessage => HasReceived ? Time.unscaledTime - _lastMessageTime : -1f;
 
         /// <summary>False if the port could not be opened or the socket failed.</summary>
         public bool IsListening => _client != null;
@@ -37,10 +51,10 @@ namespace PlanetMakey.Hits
         /// <summary>The text of the latest packet, accepted or not. Null before the first one.</summary>
         public string LastMessage { get; private set; }
 
-        /// <summary>True if the latest packet was not a valid hit.</summary>
+        /// <summary>True if the latest packet was neither a valid hit nor a valid START.</summary>
         public bool LastMessageRejected { get; private set; }
 
-        /// <summary>How many packets were not valid hits since this component was enabled.</summary>
+        /// <summary>How many packets were neither valid hits nor valid START messages since this component was enabled.</summary>
         public int RejectedCount { get; private set; }
 
         private void OnEnable()
@@ -48,6 +62,7 @@ namespace PlanetMakey.Hits
             LastMessage = null;
             LastMessageRejected = false;
             RejectedCount = 0;
+            HasReceived = false;
 
             StartListening();
         }
@@ -135,11 +150,20 @@ namespace PlanetMakey.Hits
         private void Handle(string message)
         {
             LastMessage = ToDisplayText(message);
+            HasReceived = true;
+            _lastMessageTime = Time.unscaledTime;
 
             if (HitMessageParser.TryParseHit(message, out BallHit hit))
             {
                 LastMessageRejected = false;
                 RaiseHit(hit);
+                return;
+            }
+
+            if (HitMessageParser.IsStart(message))
+            {
+                LastMessageRejected = false;
+                StartReceived?.Invoke();
                 return;
             }
 

@@ -2,7 +2,7 @@
 
 How the booth hardware tells the game that a ball hit the wall.
 
-Status: draft. The game reads `HIT` messages; `START` is not built yet. Details can still change.
+Status: draft. The game reads `HIT` and `START` messages. Details can still change.
 
 ## Transport
 
@@ -41,13 +41,18 @@ The positions do not have to line up exactly with the projected picture. The gam
 calibration step that corrects for offset, scale and skew. What matters is that the same spot
 on the wall always gives the same `x` and `y`.
 
-### START (planned)
+### START
 
 ```
 START
 ```
 
-Sent when a physical start button is pressed. Not needed yet.
+Send this when the physical start button is pressed. It starts a round, the same as the operator's
+Space key. `START` can be written in upper or lower case, and nothing else may be on the line.
+
+The game only acts on it while it is waiting between rounds. A `START` that arrives during a round,
+or while Makey is still flying off after an aborted round, is ignored, so a button that bounces or
+is pressed twice does no harm.
 
 ## Rules
 
@@ -64,6 +69,7 @@ import socket
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.sendto(b"HIT 0.42 0.77 RED", ("127.0.0.1", 9000))
+sock.sendto(b"START", ("127.0.0.1", 9000))
 ```
 
 Replace `127.0.0.1` with the address of the game PC when sending from another device.

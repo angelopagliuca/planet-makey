@@ -14,6 +14,7 @@ namespace PlanetMakey.Hits
     {
         private const string HitVerb = "HIT";
         private const int HitFieldCount = 4;
+        private const string StartVerb = "START";
 
         /// <summary>
         /// Reads <c>HIT &lt;x&gt; &lt;y&gt; &lt;color&gt;</c>. The verb and the color are not case
@@ -54,6 +55,22 @@ namespace PlanetMakey.Hits
 
             hit = new BallHit(new Vector2(x, y), color);
             return true;
+        }
+
+        /// <summary>
+        /// True if the message is <c>START</c>, the booth's start button. The verb is not case
+        /// sensitive and surrounding whitespace is ignored; anything else on the line makes it invalid.
+        /// </summary>
+        public static bool IsStart(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return false;
+            }
+
+            // A null separator splits on any whitespace, which also drops a trailing newline.
+            string[] fields = message.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            return fields.Length == 1 && string.Equals(fields[0], StartVerb, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool TryParseNumber(string token, out float value)

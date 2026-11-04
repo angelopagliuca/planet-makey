@@ -20,7 +20,7 @@ namespace PlanetMakey.Game.Round
         [Min(0f)]
         [SerializeField] private float _nightSeconds = 180f;
 
-        [Tooltip("Seconds of dawn, with the score on screen, before the game goes back to idle. Keep it longer than Makey's Leave Seconds, or he is still leaving when the next round starts.")]
+        [Tooltip("Seconds of dawn, with the score on screen, before the game goes back to idle. Keep it longer than Makey's Leave Seconds, or a start request right after the dawn is ignored until he is gone.")]
         [Min(0f)]
         [SerializeField] private float _dawnSeconds = 8f;
 
