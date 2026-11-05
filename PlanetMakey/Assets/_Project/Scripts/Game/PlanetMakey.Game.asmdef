@@ -5,7 +5,8 @@
         "PlanetMakey.Core",
         "PlanetMakey.Hits",
         "Unity.InputSystem",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

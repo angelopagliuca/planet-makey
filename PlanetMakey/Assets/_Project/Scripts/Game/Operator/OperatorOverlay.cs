@@ -73,7 +73,7 @@ namespace PlanetMakey.Game.Operator
         [TextArea(3, 8)]
         [SerializeField] private string _keyHelp =
             "Space  start a round\n" +
-            "Hold Space during a round  abort it\n" +
+            "Hold Space at night  skip to dawn\n" +
             "Shift  show or hide this panel\n" +
             "F9  calibrate\n" +
             "1-4  load a ball (backup for the cannon sensor)";

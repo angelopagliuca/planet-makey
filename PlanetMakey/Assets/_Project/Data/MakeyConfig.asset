@@ -15,7 +15,15 @@ MonoBehaviour:
   _enterSeconds: 2.5
   _dazeSeconds: 3
   _recoverSeconds: 1
+  _leaveSeconds: 4.1
   _approachSeconds: 1.2
   _beamSeconds: 1
   _liftSeconds: 6
   _celebrateSeconds: 1.5
+  _hoverHeightMin: 1
+  _hoverHeightMax: 5
+  _nearHeightScale: 0.5
+  _nearDistance: 8
+  _farDistance: 14
+  _flightBandMinY: 0.4
+  _flightBandMaxY: 0.9

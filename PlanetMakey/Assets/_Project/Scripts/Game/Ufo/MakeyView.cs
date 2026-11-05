@@ -112,6 +112,78 @@ namespace PlanetMakey.Game.Ufo
         [Min(0f)]
         [SerializeField] private float _celebrateWiggleDegrees = 20f;
 
+        [Header("Life: facing and tilt")]
+        [Tooltip("How much Makey turns to keep facing the camera when he is off to one side, from 0 (never) to 1 (always straight at it). Below 1 keeps a little 3D look. Needs the camera wired on Makey.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _facingWeight = 0.7f;
+
+        [Tooltip("How far the top of the ship tips towards the camera, in degrees, so more of the cockpit shows from below. Needs the camera wired on Makey.")]
+        [Min(0f)]
+        [SerializeField] private float _cockpitTiltDegrees = 10f;
+
+        [Header("Life: lean into movement")]
+        [Tooltip("The most the ship leans while he glides to a cow, in degrees.")]
+        [Min(0f)]
+        [SerializeField] private float _leanMaxDegrees = 18f;
+
+        [Tooltip("The speed, in world units per second, at which the lean and the stretch reach their full size.")]
+        [Min(0.1f)]
+        [SerializeField] private float _leanFullSpeed = 8f;
+
+        [Tooltip("How strongly the lean is pulled to where it should be. Higher is quicker.")]
+        [Min(0.1f)]
+        [SerializeField] private float _leanStiffness = 60f;
+
+        [Tooltip("How much the lean is held back. About 7 with a stiffness of 60 overshoots a little when he stops, then settles. Higher is calmer.")]
+        [Min(0f)]
+        [SerializeField] private float _leanDamping = 7f;
+
+        [Tooltip("How much the ship stretches up while he moves fast, as a share of its size. When he stops it squashes a little and settles.")]
+        [Min(0f)]
+        [SerializeField] private float _stretchAmount = 0.06f;
+
+        [Header("Life: idle")]
+        [Tooltip("How far the ship sways from side to side while he hovers, in the pivot's units.")]
+        [Min(0f)]
+        [SerializeField] private float _swayDistance = 0.12f;
+
+        [Tooltip("Sways per second.")]
+        [Min(0f)]
+        [SerializeField] private float _swaysPerSecond = 0.3f;
+
+        [Tooltip("How much the ship swells and shrinks as if it breathes, as a share of its size.")]
+        [Min(0f)]
+        [SerializeField] private float _breathAmount = 0.02f;
+
+        [Tooltip("Breaths per second.")]
+        [Min(0f)]
+        [SerializeField] private float _breathsPerSecond = 0.25f;
+
+        [Header("Life: strain while lifting a cow")]
+        [Tooltip("How hard the ship shakes, in degrees, just before the cow reaches it. It grows with the square of the lift's progress.")]
+        [Min(0f)]
+        [SerializeField] private float _strainShakeDegrees = 3f;
+
+        [Tooltip("How far the ship jitters, in the pivot's units, just before the cow reaches it.")]
+        [Min(0f)]
+        [SerializeField] private float _strainShakeDistance = 0.05f;
+
+        [Tooltip("How fast the strain shake changes, in changes per second.")]
+        [Min(0f)]
+        [SerializeField] private float _strainShakeSpeed = 18f;
+
+        [Tooltip("The share of the lift (0 to 1) after which the shield starts to flicker, to tell the players the cow is nearly gone.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _urgencyStart = 0.6f;
+
+        [Tooltip("How much of its see-through the shield loses at the worst of the flicker, from 0 (no flicker) to 1.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _flickerDepth = 0.35f;
+
+        [Tooltip("Flickers per second when the cow is almost at the ship. It starts at 4 and speeds up to this.")]
+        [Min(4f)]
+        [SerializeField] private float _flickerMaxPerSecond = 10f;
+
         [Header("Debug")]
         [Tooltip("Write what the view shows to the Console: how it is wired, every state it sees, every effect it starts, and a status line once a second. Turn it off when it is no longer needed.")]
         [SerializeField] private bool _debugLog = true;
@@ -131,6 +203,7 @@ namespace PlanetMakey.Game.Ufo
         // Where things were when this component was enabled, put back when it is disabled.
         [NonSerialized] private Vector3 _pivotPosition;
         [NonSerialized] private Quaternion _pivotRotation;
+        [NonSerialized] private Vector3 _pivotScale;
         [NonSerialized] private Vector3 _shieldScale;
         [NonSerialized] private bool _shieldWasEnabled;
         [NonSerialized] private Quaternion _dazeEffectRotation;
@@ -169,6 +242,21 @@ namespace PlanetMakey.Game.Ufo
         [NonSerialized] private float _rattleLeft;
         [NonSerialized] private bool _dazeShown;
 
+        // The state of the lively motion: springs for the lean, the squash and stretch, how much of
+        // the motion is switched on, and where Makey was last frame to tell how fast he moves.
+        [NonSerialized] private MakeyMotion.Spring _rollSpring;
+        [NonSerialized] private MakeyMotion.Spring _pitchSpring;
+        [NonSerialized] private MakeyMotion.Spring _stretchSpring;
+        [NonSerialized] private float _lifeWeight;
+        [NonSerialized] private Vector3 _lastMakeyPosition;
+        [NonSerialized] private bool _hasLastMakeyPosition;
+
+        // How fast the lively motion fades in and out between states, per second.
+        private const float LifeBlendPerSecond = 2f;
+
+        // Keeps the shake of the strain from repeating the idle sway's phase.
+        private const float StrainNoiseSeed = 17.3f;
+
         private void OnEnable()
         {
             if (_makey == null || _modelPivot == null || _shield == null)
@@ -184,9 +272,16 @@ namespace PlanetMakey.Game.Ufo
 
             _pivotPosition = _modelPivot.localPosition;
             _pivotRotation = _modelPivot.localRotation;
+            _pivotScale = _modelPivot.localScale;
             _shieldScale = _shield.transform.localScale;
             _shieldWasEnabled = _shield.enabled;
             _captured = true;
+
+            _rollSpring.Reset();
+            _pitchSpring.Reset();
+            _stretchSpring.Reset();
+            _lifeWeight = 0f;
+            _hasLastMakeyPosition = false;
 
             _shatterLeft = 0f;
             _flashLeft = 0f;
@@ -238,6 +333,7 @@ namespace PlanetMakey.Game.Ufo
             {
                 _modelPivot.localPosition = _pivotPosition;
                 _modelPivot.localRotation = _pivotRotation;
+                _modelPivot.localScale = _pivotScale;
             }
 
             if (_shield != null)
@@ -577,7 +673,7 @@ namespace PlanetMakey.Game.Ufo
                 Color shieldColor = GetDisplayColor(_makey.ShieldColor);
                 float glow = _flashSeconds > 0f ? _flashLeft / _flashSeconds : 0f;
                 Color color = Color.Lerp(shieldColor, _flashColor, glow);
-                float alpha = Mathf.Lerp(_shieldAlpha, 0.9f, glow);
+                float alpha = Mathf.Lerp(_shieldAlpha, 0.9f, glow) * UrgencyFlicker();
 
                 ShowShield(color, alpha, 1f);
                 return;
@@ -616,26 +712,33 @@ namespace PlanetMakey.Game.Ufo
         private void UpdatePivot(MakeyState state)
         {
             Vector3 position = _pivotPosition;
-            Quaternion rotation = _pivotRotation;
+            Quaternion lifeRotation = Quaternion.identity;
+            Vector3 lifeScale = Vector3.one;
 
             if (state != MakeyState.Away)
             {
                 position.y += Mathf.Sin(Time.time * 2f * Mathf.PI * _bobsPerSecond) * _bobHeight;
             }
 
+            ApplyLife(state, ref position, ref lifeRotation, ref lifeScale);
+
+            // The lively tilt is applied first, so the daze spin and the head shake turn around the tilted ship.
+            Quaternion baseRotation = lifeRotation * _pivotRotation;
+            Quaternion rotation = baseRotation;
+
             if (state == MakeyState.Dazed)
             {
                 // Fast at first and slowing to a stop, finishing on a whole number of turns.
                 float progress = _makey.StateProgress;
                 float eased = 1f - (1f - progress) * (1f - progress);
-                rotation = _pivotRotation * Quaternion.Euler(0f, 360f * _dazeTurns * eased, 0f);
+                rotation = baseRotation * Quaternion.Euler(0f, 360f * _dazeTurns * eased, 0f);
             }
             else if (state == MakeyState.Recovering)
             {
                 // Swings from side to side, less and less.
                 float progress = _makey.StateProgress;
                 float swing = Mathf.Sin(progress * _headShakeCycles * 2f * Mathf.PI) * _headShakeDegrees * (1f - progress);
-                rotation = _pivotRotation * Quaternion.Euler(0f, swing, 0f);
+                rotation = baseRotation * Quaternion.Euler(0f, swing, 0f);
             }
 
             if (_makey.AbductionPhase == AbductionPhase.Celebrating)
@@ -657,6 +760,127 @@ namespace PlanetMakey.Game.Ufo
 
             _modelPivot.localPosition = position;
             _modelPivot.localRotation = rotation;
+            _modelPivot.localScale = Vector3.Scale(_pivotScale, lifeScale);
+        }
+
+        // The lively motion, all on the pivot and all read from Makey, never written back: he faces the
+        // camera and tips towards it, leans into his own movement and stretches with it (springs, so he
+        // overshoots and settles when he stops), sways and breathes while he hovers, and shakes harder
+        // as a lifted cow nears him. It fades in and out with the state, so it never fights the
+        // fly-in and fly-off clips.
+        private void ApplyLife(MakeyState state, ref Vector3 position, ref Quaternion rotation, ref Vector3 scale)
+        {
+            float deltaTime = Time.deltaTime;
+            bool active = state == MakeyState.Shielded || state == MakeyState.Dazed || state == MakeyState.Recovering;
+            _lifeWeight = Mathf.MoveTowards(_lifeWeight, active ? 1f : 0f, deltaTime * LifeBlendPerSecond);
+
+            // How fast Makey moves. Measured only while the motion is on, so that being put at the
+            // hover point when he enters never counts as a dash.
+            Vector3 makeyPosition = _makey.transform.position;
+            Vector3 velocity = Vector3.zero;
+            if (active && _hasLastMakeyPosition && deltaTime > 0f)
+            {
+                velocity = (makeyPosition - _lastMakeyPosition) / deltaTime;
+            }
+
+            _lastMakeyPosition = makeyPosition;
+            _hasLastMakeyPosition = active;
+
+            if (!active && _lifeWeight <= 0f)
+            {
+                _rollSpring.Reset();
+                _pitchSpring.Reset();
+                _stretchSpring.Reset();
+                return;
+            }
+
+            // The directions the players see: right and away from the camera, along the ground.
+            Vector3 right = Vector3.right;
+            Vector3 forward = Vector3.forward;
+            float yaw = 0f;
+            float tilt = 0f;
+            Camera viewCamera = _makey.ViewCamera;
+            if (viewCamera != null)
+            {
+                Vector3 flatForward = viewCamera.transform.forward;
+                flatForward.y = 0f;
+                if (flatForward.sqrMagnitude > 1e-4f)
+                {
+                    forward = flatForward.normalized;
+                    right = Vector3.Cross(Vector3.up, forward);
+                }
+
+                yaw = MakeyMotion.FacingYawDegrees(viewCamera.transform.position, viewCamera.transform.forward, makeyPosition) * _facingWeight;
+                tilt = _cockpitTiltDegrees;
+            }
+
+            float rightSpeed = Mathf.Clamp(Vector3.Dot(velocity, right) / _leanFullSpeed, -1f, 1f);
+            float forwardSpeed = Mathf.Clamp(Vector3.Dot(velocity, forward) / _leanFullSpeed, -1f, 1f);
+            float speed = Mathf.Clamp01(velocity.magnitude / _leanFullSpeed);
+
+            // The top leans the way he moves: to the right is a turn the opposite way around the view axis.
+            _rollSpring.Step(-rightSpeed * _leanMaxDegrees, _leanStiffness, _leanDamping, deltaTime);
+            _pitchSpring.Step(forwardSpeed * _leanMaxDegrees * 0.6f, _leanStiffness, _leanDamping, deltaTime);
+            _stretchSpring.Step(speed * _stretchAmount, _leanStiffness, _leanDamping, deltaTime);
+
+            float time = Time.time;
+            Transform parent = _modelPivot.parent;
+            Vector3 sway = parent != null ? parent.InverseTransformDirection(right) : right;
+            sway *= Mathf.Sin(time * 2f * Mathf.PI * _swaysPerSecond) * _swayDistance;
+            float breath = 1f + Mathf.Sin(time * 2f * Mathf.PI * _breathsPerSecond) * _breathAmount;
+
+            // The strain grows with the square of the lift, so it is faint for a while and then builds.
+            float shakeRoll = 0f;
+            float shakePitch = 0f;
+            Vector3 jitter = Vector3.zero;
+            if (state == MakeyState.Shielded && _makey.AbductionPhase == AbductionPhase.Lifting)
+            {
+                float strain = _makey.AbductionProgress * _makey.AbductionProgress;
+                float noiseTime = time * _strainShakeSpeed;
+                shakeRoll = SignedNoise(noiseTime, 0f) * _strainShakeDegrees * strain;
+                shakePitch = SignedNoise(noiseTime, StrainNoiseSeed) * _strainShakeDegrees * strain;
+                jitter = new Vector3(SignedNoise(noiseTime, 31.7f), SignedNoise(noiseTime, 47.1f), 0f) * (_strainShakeDistance * strain);
+            }
+
+            // Turn to face the camera, tip the top towards it (up is a turn away from it), lean, shake.
+            Quaternion world = Quaternion.AngleAxis(_rollSpring.Value + shakeRoll, forward)
+                * Quaternion.AngleAxis(_pitchSpring.Value + shakePitch - tilt, right)
+                * Quaternion.AngleAxis(yaw, Vector3.up);
+            Quaternion parentRotation = parent != null ? parent.rotation : Quaternion.identity;
+            Quaternion local = Quaternion.Inverse(parentRotation) * world * parentRotation;
+
+            float stretch = _stretchSpring.Value;
+            Vector3 lifeScale = new Vector3(1f - stretch * 0.5f, 1f + stretch, 1f - stretch * 0.5f) * breath;
+
+            rotation = Quaternion.Slerp(Quaternion.identity, local, _lifeWeight);
+            position += (sway + jitter) * _lifeWeight;
+            scale = Vector3.Lerp(Vector3.one, lifeScale, _lifeWeight);
+        }
+
+        // Smooth random noise between -1 and 1, so the strain shake never repeats exactly.
+        private static float SignedNoise(float x, float seed)
+        {
+            return (Mathf.PerlinNoise(x, seed) - 0.5f) * 2f;
+        }
+
+        // While a cow is being lifted and is nearly there, the shield flickers, faster and deeper as
+        // it gets closer, which tells the players time is running out. 1 means no flicker.
+        private float UrgencyFlicker()
+        {
+            if (_makey.AbductionPhase != AbductionPhase.Lifting || _urgencyStart >= 1f)
+            {
+                return 1f;
+            }
+
+            float urgency = Mathf.InverseLerp(_urgencyStart, 1f, _makey.AbductionProgress);
+            if (urgency <= 0f)
+            {
+                return 1f;
+            }
+
+            float rate = Mathf.Lerp(4f, _flickerMaxPerSecond, urgency);
+            float wave = 0.5f + 0.5f * Mathf.Sin(Time.time * 2f * Mathf.PI * rate);
+            return 1f - _flickerDepth * urgency * wave;
         }
 
         private void UpdateDazeEffect(MakeyState state)
@@ -710,6 +934,11 @@ namespace PlanetMakey.Game.Ufo
             if (_shield.GetComponent<Collider>() != null)
             {
                 Debug.LogWarning("The shield object '" + _shield.name + "' has a collider. Remove it, or balls meant for Makey may stop at the shield.", this);
+            }
+
+            if (_makey.ViewCamera == null)
+            {
+                Debug.LogWarning("The Makey component has no camera wired, so Makey will not turn to face the camera or tip towards it. Wire the camera on the Makey component.", this);
             }
 
             CheckDazeEffect();
