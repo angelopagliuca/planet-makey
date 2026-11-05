@@ -49,6 +49,8 @@ A box is ticked once that step has been built and tested.
 - [x] 1.2 A hit is traced into the scene and the object it lands on reacts
 - [x] 1.3 The game receives hits from the booth hardware over the network
 - [x] 1.4 Calibration lines up the wall sensor with the projected picture
+- [ ] 1.5 The cannon remembers the loaded ball color, and the hardware connects to the game over TCP
+- [ ] 1.6 A program turns the wall sensor's scans into hits
 
 **2. Abduction loop** (week of October 12): the core game with placeholder shapes
 

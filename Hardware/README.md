@@ -1,13 +1,15 @@
 # Hardware
 
 The booth side of the game: the wall sensor, and the program that turns what it sees into the
-`HIT` messages the game reads (see [`../PROTOCOL.md`](../PROTOCOL.md)).
+messages the game reads (see [`../PROTOCOL.md`](../PROTOCOL.md)). The game listens on TCP, and
+the hardware connects to it.
 
-That program will:
+Two devices talk to the game, and they do not talk to each other:
 
-1. read the sweeps from the sensor and clean them up, leaving one position per ball impact
-2. read the color of the ball from the cannon
-3. send `HIT <x> <y> <color>` to the game
+- **The cannon's color sensor** sends `LOAD <color>` when a ball is loaded. The game remembers
+  the color until the next one.
+- **The wall sensor program** reads the sweeps from the lidar, cleans them up so each ball impact
+  is one position, and sends `HIT <x> <y>`. The game gives the hit the loaded ball's color.
 
 The game does the calibration, so positions only have to be consistent. They still have to be
 in the `0` to `1` range the protocol describes, so a rough conversion from sensor distance to

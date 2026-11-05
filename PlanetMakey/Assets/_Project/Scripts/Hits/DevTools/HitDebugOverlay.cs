@@ -22,8 +22,11 @@ namespace PlanetMakey.Hits.DevTools
         private const string CalibratingText = "Calibration: in progress";
 
         [Header("Wiring")]
-        [Tooltip("Every hit source whose hits should be drawn. If one of them is the mouse source, the color it will fire next is shown too.")]
+        [Tooltip("Every hit source whose hits should be drawn. If one of them is the TCP source, its network line is shown too.")]
         [SerializeField] private HitSource[] _sources;
+
+        [Tooltip("Optional. When set, the overlay also shows the color of the ball loaded in the cannon.")]
+        [SerializeField] private Cannon _cannon;
 
         [Tooltip("Display colors for the ball colors. Markers are white if this is empty.")]
         [SerializeField] private BallColorPalette _palette;
@@ -55,8 +58,9 @@ namespace PlanetMakey.Hits.DevTools
         private int _nextIndex;
         private int _hitCount;
 
-        // The status line is rebuilt only when the selected color changes.
+        // The status line is rebuilt only when the cannon's state changes.
         private string _statusText;
+        private bool _statusHasBall;
         private BallColor _statusColor;
 
         // What the latest hit landed on, built once per resolved hit. Empty until the first hit.
@@ -65,15 +69,15 @@ namespace PlanetMakey.Hits.DevTools
         // Not kept across a script recompile in Play mode, so it is rebuilt from the skin.
         [NonSerialized] private GUIStyle _labelStyle;
 
-        // The mouse source found in _sources, or null. It is looked up from that list and not
-        // wired separately, so the status line can never show for a source whose hits are not drawn.
-        [NonSerialized] private MouseHitSource _mouseSource;
-
-        // Same for the UDP source. Its line is rebuilt only when one of the shown values changes.
-        [NonSerialized] private UdpHitSource _udpSource;
+        // The TCP source found in _sources, or null. It is looked up from that list and not wired
+        // separately, so the line can never show for a source whose hits are not drawn. Its line is
+        // rebuilt only when one of the shown values changes.
+        [NonSerialized] private TcpHitSource _tcpSource;
         private string _networkText;
         private bool _networkListening;
+        private int _networkClients;
         private int _networkRejected;
+        private int _networkNoBall;
         private bool _networkLastRejected;
         private string _networkLast;
 
@@ -83,9 +87,9 @@ namespace PlanetMakey.Hits.DevTools
         private void OnEnable()
         {
             EnsureBuffers();
-            _mouseSource = null;
-            _udpSource = null;
+            _tcpSource = null;
             _networkText = null;
+            _statusText = null;
             _resultText = null;
 
             if (_resolver != null)
@@ -112,16 +116,10 @@ namespace PlanetMakey.Hits.DevTools
 
                 source.HitReceived += OnHitReceived;
 
-                MouseHitSource mouseSource = source as MouseHitSource;
-                if (mouseSource != null)
+                TcpHitSource tcpSource = source as TcpHitSource;
+                if (tcpSource != null)
                 {
-                    _mouseSource = mouseSource;
-                }
-
-                UdpHitSource udpSource = source as UdpHitSource;
-                if (udpSource != null)
-                {
-                    _udpSource = udpSource;
+                    _tcpSource = tcpSource;
                 }
             }
         }
@@ -279,21 +277,28 @@ namespace PlanetMakey.Hits.DevTools
 
         private void DrawStatus()
         {
-            if (_mouseSource == null)
+            if (_cannon == null)
             {
                 return;
             }
 
-            BallColor selected = _mouseSource.SelectedColor;
-            if (string.IsNullOrEmpty(_statusText) || selected != _statusColor)
+            bool hasBall = _cannon.HasBall;
+            BallColor loaded = _cannon.LoadedColor;
+            if (string.IsNullOrEmpty(_statusText) || hasBall != _statusHasBall || loaded != _statusColor)
             {
-                _statusColor = selected;
-                _statusText = "Mouse color: " + selected + "  (keys 1-4)";
+                _statusHasBall = hasBall;
+                _statusColor = loaded;
+                _statusText = hasBall
+                    ? "Cannon: " + loaded + "  (keys 1-4)"
+                    : "Cannon: empty  (press 1-4 to load a ball)";
             }
 
             float swatchSize = _fontSize;
-            GUI.color = GetDisplayColor(selected);
-            GUI.DrawTexture(new Rect(10f, _rowTop + 4f, swatchSize, swatchSize), Texture2D.whiteTexture);
+            if (hasBall)
+            {
+                GUI.color = GetDisplayColor(loaded);
+                GUI.DrawTexture(new Rect(10f, _rowTop + 4f, swatchSize, swatchSize), Texture2D.whiteTexture);
+            }
 
             GUI.color = Color.white;
             GUI.Label(new Rect(18f + swatchSize, _rowTop, 600f, _fontSize + 8f), _statusText, _labelStyle);
@@ -312,29 +317,35 @@ namespace PlanetMakey.Hits.DevTools
 
         private void DrawNetwork()
         {
-            if (_udpSource == null)
+            if (_tcpSource == null)
             {
                 return;
             }
 
-            bool listening = _udpSource.IsListening;
-            int rejected = _udpSource.RejectedCount;
-            bool lastRejected = _udpSource.LastMessageRejected;
-            string last = _udpSource.LastMessage;
+            bool listening = _tcpSource.IsListening;
+            int clients = _tcpSource.ClientCount;
+            int rejected = _tcpSource.RejectedCount;
+            int noBall = _tcpSource.NoBallCount;
+            bool lastRejected = _tcpSource.LastMessageRejected;
+            string last = _tcpSource.LastMessage;
 
             bool changed = _networkText == null
                 || listening != _networkListening
+                || clients != _networkClients
                 || rejected != _networkRejected
+                || noBall != _networkNoBall
                 || lastRejected != _networkLastRejected
                 || last != _networkLast;
 
             if (changed)
             {
                 _networkListening = listening;
+                _networkClients = clients;
                 _networkRejected = rejected;
+                _networkNoBall = noBall;
                 _networkLastRejected = lastRejected;
                 _networkLast = last;
-                _networkText = BuildNetworkText(_udpSource.Port, listening, rejected, last, lastRejected);
+                _networkText = BuildNetworkText(_tcpSource.Port, listening, clients, rejected, noBall, last, lastRejected);
             }
 
             DrawRow(_networkText);
@@ -361,9 +372,9 @@ namespace PlanetMakey.Hits.DevTools
             }
         }
 
-        private static string BuildNetworkText(int port, bool listening, int rejected, string last, bool lastRejected)
+        private static string BuildNetworkText(int port, bool listening, int clients, int rejected, int noBall, string last, bool lastRejected)
         {
-            string state = listening ? "listening" : "NOT LISTENING (see Console)";
+            string state = listening ? "listening, " + clients + " connected" : "NOT LISTENING (see Console)";
 
             string lastText = "-";
             if (!string.IsNullOrEmpty(last))
@@ -371,7 +382,7 @@ namespace PlanetMakey.Hits.DevTools
                 lastText = lastRejected ? last + "  (rejected)" : last;
             }
 
-            return "UDP :" + port + " " + state + "   rejected " + rejected + "   last: " + lastText;
+            return "TCP :" + port + " " + state + "   rejected " + rejected + "   no ball " + noBall + "   last: " + lastText;
         }
 
         private void DrawRow(string text)
