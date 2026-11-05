@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using PlanetMakey.Core;
 using UnityEngine;
 
 namespace PlanetMakey.Game.Ufo
@@ -42,6 +44,42 @@ namespace PlanetMakey.Game.Ufo
         [Min(0f)]
         [SerializeField] private float _celebrateSeconds = 1.5f;
 
+        [Header("Shield colors")]
+        [Tooltip("The colors Makey's shield may have. Remove one if the cannon's color sensor cannot tell it apart from another at the booth; the game then simply does not use it. A new shield is never the same color as the one before. Empty means every color.")]
+        [SerializeField] private BallColor[] _shieldColors =
+        {
+            BallColor.Red, BallColor.Blue, BallColor.Yellow, BallColor.Green, BallColor.Purple, BallColor.Orange
+        };
+
+        [Header("Hover height")]
+        [Tooltip("Lowest height, in world units above the cow's resting position, that Makey hovers at over a cow. He picks a random height between this and the maximum each time he picks a cow.")]
+        [Min(0f)]
+        [SerializeField] private float _hoverHeightMin = 1f;
+
+        [Tooltip("Highest height, in world units above the cow's resting position, that Makey hovers at over a cow.")]
+        [Min(0f)]
+        [SerializeField] private float _hoverHeightMax = 3f;
+
+        [Tooltip("How much of the hover height range (the maximum minus the minimum) Makey may use over a cow that is at or nearer than Near Distance. 1 uses all of it, 0.5 half. The same height looks higher on screen over a near cow, so a smaller value keeps him from going too high there. The minimum height is never reduced.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _nearHeightScale = 0.5f;
+
+        [Tooltip("Distance from the camera, in world units, at or below which Near Height Scale applies in full. Measured along the camera's view direction to the cow's resting position.")]
+        [Min(0f)]
+        [SerializeField] private float _nearDistance = 8f;
+
+        [Tooltip("Distance from the camera at or beyond which Makey may use the whole hover height range. Between Near Distance and this, the share of the range grows steadily.")]
+        [Min(0f)]
+        [SerializeField] private float _farDistance = 14f;
+
+        [Tooltip("Lowest screen height Makey's center may be at, from 0 (bottom of the picture) to 1 (top). A hover height that would put him lower is raised to this.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _flightBandMinY = 0.4f;
+
+        [Tooltip("Highest screen height Makey's center may be at. Keeps him on screen and clear of the HUD at the top. A hover height that would put him higher is lowered to this.")]
+        [Range(0f, 1f)]
+        [SerializeField] private float _flightBandMaxY = 0.85f;
+
         /// <summary>Seconds spent flying in.</summary>
         public float EnterSeconds => _enterSeconds;
 
@@ -65,5 +103,48 @@ namespace PlanetMakey.Game.Ufo
 
         /// <summary>Seconds spent celebrating an absorbed cow.</summary>
         public float CelebrateSeconds => _celebrateSeconds;
+
+        /// <summary>The colors the shield may have. Empty means every color.</summary>
+        public IReadOnlyList<BallColor> ShieldColors => _shieldColors;
+
+        /// <summary>Lowest hover height above a cow's resting position, in world units.</summary>
+        public float HoverHeightMin => _hoverHeightMin;
+
+        /// <summary>Highest hover height above a cow's resting position, in world units.</summary>
+        public float HoverHeightMax => _hoverHeightMax;
+
+        /// <summary>Share of the hover height range used over a near cow, 0 to 1.</summary>
+        public float NearHeightScale => _nearHeightScale;
+
+        /// <summary>Camera distance at or below which the near share applies in full.</summary>
+        public float NearDistance => _nearDistance;
+
+        /// <summary>Camera distance at or beyond which the whole hover height range is used.</summary>
+        public float FarDistance => _farDistance;
+
+        /// <summary>Lowest screen height of Makey's center, 0 to 1.</summary>
+        public float FlightBandMinY => _flightBandMinY;
+
+        /// <summary>Highest screen height of Makey's center, 0 to 1.</summary>
+        public float FlightBandMaxY => _flightBandMaxY;
+
+        // Keeps each range the right way round when one end is edited in the Inspector.
+        private void OnValidate()
+        {
+            if (_hoverHeightMax < _hoverHeightMin)
+            {
+                _hoverHeightMax = _hoverHeightMin;
+            }
+
+            if (_farDistance < _nearDistance)
+            {
+                _farDistance = _nearDistance;
+            }
+
+            if (_flightBandMaxY < _flightBandMinY)
+            {
+                _flightBandMaxY = _flightBandMinY;
+            }
+        }
     }
 }

@@ -12,8 +12,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d45687dd853ad54991bca4fbb8e83f3, type: 3}
   m_Name: BallColorPalette
   m_EditorClassIdentifier: PlanetMakey.Core::PlanetMakey.Core.BallColorPalette
-  _red: {r: 1, g: 0, b: 0, a: 1}
-  _blue: {r: 0, g: 0, b: 1, a: 1}
-  _yellow: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  _green: {r: 0, g: 1, b: 0, a: 1}
+  _red: {r: 1, g: 0.16, b: 0.16, a: 1}
+  _blue: {r: 0.2, g: 0.42, b: 1, a: 1}
+  _yellow: {r: 1, g: 0.88, b: 0.1, a: 1}
+  _green: {r: 0.2, g: 1, b: 0.3, a: 1}
+  _purple: {r: 0.68, g: 0.28, b: 1, a: 1}
+  _orange: {r: 1, g: 0.52, b: 0.05, a: 1}
   _unknown: {r: 1, g: 0, b: 1, a: 1}

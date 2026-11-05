@@ -5,6 +5,7 @@ using PlanetMakey.Game.Round;
 using PlanetMakey.Game.Ufo;
 using PlanetMakey.Hits;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlanetMakey.Game.Operator
 {
@@ -27,8 +28,9 @@ namespace PlanetMakey.Game.Operator
         private const int HitRow = 2;
         private const int HardwareRow = 3;
         private const int LastMessageRow = 4;
-        private const int CalibrationRow = 5;
-        private const int RowCount = 6;
+        private const int CannonRow = 5;
+        private const int CalibrationRow = 6;
+        private const int RowCount = 7;
 
         [Header("Wiring")]
         [SerializeField] private RoundController _round;
@@ -39,8 +41,12 @@ namespace PlanetMakey.Game.Operator
         [Tooltip("Optional. Adds a row with the latest hit and what it landed on.")]
         [SerializeField] private HitResolver _resolver;
 
-        [Tooltip("Optional. Adds the rows about the hardware link: port, time since the last message, rejected count.")]
-        [SerializeField] private UdpHitSource _udp;
+        [Tooltip("Optional. Adds the rows about the hardware link: port, connected devices, time since the last message, rejected and no-ball counts.")]
+        [FormerlySerializedAs("_udp")]
+        [SerializeField] private TcpHitSource _hardware;
+
+        [Tooltip("Optional. Adds a row with the color of the ball loaded in the cannon.")]
+        [SerializeField] private Cannon _cannon;
 
         [Tooltip("Optional. Adds a row with the calibration state.")]
         [SerializeField] private WallCalibration _calibration;
@@ -67,10 +73,10 @@ namespace PlanetMakey.Game.Operator
         [TextArea(3, 8)]
         [SerializeField] private string _keyHelp =
             "Space  start a round\n" +
-            "Hold Space during a round  abort it\n" +
+            "Hold Space at night  skip to dawn\n" +
             "Shift  show or hide this panel\n" +
             "F9  calibrate\n" +
-            "1-4  mouse ball color";
+            "1-6  load a ball (backup for the cannon sensor)";
 
         // The text of each row, built when its values change. Null means the row is not shown.
         private readonly string[] _rows = new string[RowCount];
@@ -89,10 +95,15 @@ namespace PlanetMakey.Game.Operator
         private BallColor _shownShield;
         private AbductionPhase _shownPhase;
         private bool _shownListening;
+        private int _shownClients;
         private int _shownHardwareSeconds;
         private int _shownRejected;
+        private int _shownNoBall;
         private bool _shownLastRejected;
         private string _shownLastMessage;
+        private bool _shownHasBall;
+        private BallColor _shownLoaded;
+        private int _shownLoadedSeconds;
         private bool _shownCalibrating;
         private bool _shownCalibrated;
 
@@ -150,6 +161,7 @@ namespace PlanetMakey.Game.Operator
             RefreshRoundRow();
             RefreshMakeyRow();
             RefreshHardwareRows();
+            RefreshCannonRow();
             RefreshCalibrationRow();
             _dirty = false;
         }
@@ -233,37 +245,70 @@ namespace PlanetMakey.Game.Operator
 
         private void RefreshHardwareRows()
         {
-            if (_udp == null)
+            if (_hardware == null)
             {
                 return;
             }
 
-            bool listening = _udp.IsListening;
-            int rejected = _udp.RejectedCount;
-            bool lastRejected = _udp.LastMessageRejected;
-            string last = _udp.LastMessage;
+            bool listening = _hardware.IsListening;
+            int clients = _hardware.ClientCount;
+            int rejected = _hardware.RejectedCount;
+            int noBall = _hardware.NoBallCount;
+            bool lastRejected = _hardware.LastMessageRejected;
+            string last = _hardware.LastMessage;
 
             // -1 before the first message. Whole seconds, so the row changes once a second at most.
-            int seconds = _udp.HasReceived ? Mathf.FloorToInt(_udp.SecondsSinceLastMessage) : -1;
+            int seconds = _hardware.HasReceived ? Mathf.FloorToInt(_hardware.SecondsSinceLastMessage) : -1;
 
-            if (!_dirty && listening == _shownListening && seconds == _shownHardwareSeconds && rejected == _shownRejected
+            if (!_dirty && listening == _shownListening && clients == _shownClients && seconds == _shownHardwareSeconds
+                && rejected == _shownRejected && noBall == _shownNoBall
                 && lastRejected == _shownLastRejected && last == _shownLastMessage)
             {
                 return;
             }
 
             _shownListening = listening;
+            _shownClients = clients;
             _shownHardwareSeconds = seconds;
             _shownRejected = rejected;
+            _shownNoBall = noBall;
             _shownLastRejected = lastRejected;
             _shownLastMessage = last;
 
-            string state = listening ? "listening" : "NOT LISTENING (see Console)";
+            string state = listening ? "listening, " + clients + " connected" : "NOT LISTENING (see Console)";
             string age = seconds < 0 ? "no message yet" : "last message " + seconds + " s ago";
-            _rows[HardwareRow] = "Hardware: UDP :" + _udp.Port + " " + state + "   " + age + "   rejected " + rejected;
+            _rows[HardwareRow] = "Hardware: TCP :" + _hardware.Port + " " + state + "   " + age
+                + "   rejected " + rejected + "   no ball " + noBall;
 
             string lastText = string.IsNullOrEmpty(last) ? "-" : (lastRejected ? last + "  (rejected)" : last);
             _rows[LastMessageRow] = "Last message: " + lastText;
+        }
+
+        private void RefreshCannonRow()
+        {
+            if (_cannon == null)
+            {
+                return;
+            }
+
+            bool hasBall = _cannon.HasBall;
+            BallColor loaded = _cannon.LoadedColor;
+
+            // -1 while empty. Whole seconds, so the row changes once a second at most.
+            int seconds = hasBall ? Mathf.FloorToInt(_cannon.SecondsSinceLoaded) : -1;
+
+            if (!_dirty && hasBall == _shownHasBall && loaded == _shownLoaded && seconds == _shownLoadedSeconds)
+            {
+                return;
+            }
+
+            _shownHasBall = hasBall;
+            _shownLoaded = loaded;
+            _shownLoadedSeconds = seconds;
+
+            _rows[CannonRow] = hasBall
+                ? "Cannon: " + loaded + " loaded " + seconds + " s ago"
+                : "Cannon: empty (hits are ignored until a ball is loaded)";
         }
 
         private void RefreshCalibrationRow()

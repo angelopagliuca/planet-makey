@@ -14,6 +14,9 @@ namespace PlanetMakey.Hits
     {
         private const string HitVerb = "HIT";
         private const int HitFieldCount = 4;
+        private const int PositionFieldCount = 3;
+        private const string LoadVerb = "LOAD";
+        private const int LoadFieldCount = 2;
         private const string StartVerb = "START";
 
         /// <summary>
@@ -58,6 +61,59 @@ namespace PlanetMakey.Hits
         }
 
         /// <summary>
+        /// Reads <c>HIT &lt;x&gt; &lt;y&gt;</c>, a hit with no color: the game reports it with the color of
+        /// the ball loaded in the cannon. The verb is not case sensitive, and surrounding whitespace
+        /// is ignored. x and y must be finite numbers; they are not limited to 0 to 1.
+        /// </summary>
+        /// <returns>True and the position if the message is a valid color-less HIT; otherwise false.</returns>
+        public static bool TryParsePosition(string message, out Vector2 position)
+        {
+            position = default;
+
+            string[] fields = SplitFields(message);
+            if (fields == null || fields.Length != PositionFieldCount)
+            {
+                return false;
+            }
+
+            if (!string.Equals(fields[0], HitVerb, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!TryParseNumber(fields[1], out float x) || !TryParseNumber(fields[2], out float y))
+            {
+                return false;
+            }
+
+            position = new Vector2(x, y);
+            return true;
+        }
+
+        /// <summary>
+        /// Reads <c>LOAD &lt;color&gt;</c>, sent by the cannon's color sensor when a ball is loaded. The
+        /// verb and the color are not case sensitive, and surrounding whitespace is ignored.
+        /// </summary>
+        /// <returns>True and the color if the message is a valid LOAD; otherwise false.</returns>
+        public static bool TryParseLoad(string message, out BallColor color)
+        {
+            color = default;
+
+            string[] fields = SplitFields(message);
+            if (fields == null || fields.Length != LoadFieldCount)
+            {
+                return false;
+            }
+
+            if (!string.Equals(fields[0], LoadVerb, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return TryParseColor(fields[1], out color);
+        }
+
+        /// <summary>
         /// True if the message is <c>START</c>, the booth's start button. The verb is not case
         /// sensitive and surrounding whitespace is ignored; anything else on the line makes it invalid.
         /// </summary>
@@ -71,6 +127,18 @@ namespace PlanetMakey.Hits
             // A null separator splits on any whitespace, which also drops a trailing newline.
             string[] fields = message.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
             return fields.Length == 1 && string.Equals(fields[0], StartVerb, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // Null for a message with nothing in it. A null separator splits on any whitespace, which
+        // also drops a trailing line end.
+        private static string[] SplitFields(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return null;
+            }
+
+            return message.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
         }
 
         private static bool TryParseNumber(string token, out float value)
@@ -109,6 +177,18 @@ namespace PlanetMakey.Hits
             if (string.Equals(token, "GREEN", StringComparison.OrdinalIgnoreCase))
             {
                 color = BallColor.Green;
+                return true;
+            }
+
+            if (string.Equals(token, "PURPLE", StringComparison.OrdinalIgnoreCase))
+            {
+                color = BallColor.Purple;
+                return true;
+            }
+
+            if (string.Equals(token, "ORANGE", StringComparison.OrdinalIgnoreCase))
+            {
+                color = BallColor.Orange;
                 return true;
             }
 

@@ -2,6 +2,7 @@ using System;
 using PlanetMakey.Core;
 using PlanetMakey.Game.Cows;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace PlanetMakey.Game.Ufo
 {
@@ -24,7 +25,7 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Where Makey is parked while away, and where he flies in from. Put it off screen. Not a child of this object.")]
         [SerializeField] private Transform _spawnPoint;
 
-        [Tooltip("Where Makey hovers. Not a child of this object.")]
+        [Tooltip("Where Makey hovers when he arrives, before he picks his first cow. Not a child of this object. Over a cow his height comes from the config's hover height range.")]
         [SerializeField] private Transform _hoverPoint;
 
         [Tooltip("The cows Makey abducts. Leave it empty and he only guards his shield.")]
@@ -33,8 +34,9 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Where the beam starts and where a lifted cow ends up: a child of this object at the underside of the UFO.")]
         [SerializeField] private Transform _beamOrigin;
 
-        [Tooltip("Optional. Only used for warnings: the camera the players see, to check at the start that every cow, and Makey above it, is on screen.")]
-        [SerializeField] private Camera _checkCamera;
+        [Tooltip("The camera the players see. It keeps Makey's hover height inside the config's flight band, and lets the game warn at the start about a cow, or Makey above it, that is off screen. Without it the band is not applied.")]
+        [FormerlySerializedAs("_checkCamera")]
+        [SerializeField] private Camera _camera;
 
         [Header("Behavior")]
         [Tooltip("Fly in as soon as the game starts. Untick it when a RoundController sends Makey in at the start of the night.")]
@@ -100,6 +102,9 @@ namespace PlanetMakey.Game.Ufo
         /// <summary>The herd Makey abducts from, or null if none is wired. The cow view reads it from here.</summary>
         public CowHerd CowHerd => _cowHerd;
 
+        /// <summary>The camera the players see, or null if none is wired. The view reads it from here, so it is wired in one place.</summary>
+        public Camera ViewCamera => _camera;
+
         /// <summary>True if Makey flies in by himself when the game starts, so a round controller is not in charge of him.</summary>
         public bool EntersOnEnable => _enterOnEnable;
 
@@ -156,7 +161,8 @@ namespace PlanetMakey.Game.Ufo
                 _config.DazeSeconds,
                 _config.RecoverSeconds,
                 _config.LeaveSeconds,
-                new System.Random());
+                new System.Random(),
+                _config.ShieldColors);
             _brain.StateChanged += OnBrainStateChanged;
 
             if (_cowHerd != null)
@@ -358,14 +364,18 @@ namespace PlanetMakey.Game.Ufo
         {
             _approachFrom = transform.position;
 
-            // Above the cow at his hover height, in x and z, so cows may stand anywhere in 3D.
+            // Straight above the cow in x and z, so cows may stand anywhere in 3D, at a random height
+            // above it (kept inside the flight band, so he stays on screen).
             Vector3 rest = _cowHerd.RestPosition(index);
-            _approachTo = new Vector3(rest.x, _hoverPoint.position.y, rest.z);
+            float height = ChooseHoverHeight(rest);
+            _approachTo = new Vector3(rest.x, height, rest.z);
 
             if (_debugLog)
             {
-                Log("Picked cow " + index + " standing at " + rest.ToString("F1") + ". Gliding from " + _approachFrom.ToString("F1")
-                    + " to " + _approachTo.ToString("F1") + ".");
+                Log("Picked cow " + index + " standing at " + rest.ToString("F1") + ". Hovering " + (height - rest.y).ToString("0.0#")
+                    + " above it (range for this cow's distance " + _config.HoverHeightMin.ToString("0.0#") + " to " + HighestHoverAbove(rest).ToString("0.0#")
+                    + (_camera != null ? ", then kept in the flight band" : ", no camera so no flight band") + "). Gliding from "
+                    + _approachFrom.ToString("F1") + " to " + _approachTo.ToString("F1") + ".");
             }
 
             CowTargeted?.Invoke(index);
@@ -512,6 +522,11 @@ namespace PlanetMakey.Game.Ufo
                 }
             }
 
+            if (_camera == null)
+            {
+                Debug.LogWarning("Makey has no camera, so the flight band is not applied: his hover height over a cow is only the random range from the config, and he can end up off screen.", this);
+            }
+
             if (_cowHerd == null)
             {
                 Debug.LogWarning("Makey has no CowHerd, so he will not abduct anything. Wire the herd in.", this);
@@ -547,7 +562,7 @@ namespace PlanetMakey.Game.Ufo
         // screen above it. Both would be invisible and could not be hit.
         private void CheckCowPlacement()
         {
-            if (_checkCamera == null)
+            if (_camera == null)
             {
                 return;
             }
@@ -566,19 +581,74 @@ namespace PlanetMakey.Game.Ufo
                     Debug.LogWarning("Cow " + i + " ('" + cow.name + "') at " + rest.ToString("F1") + " is outside the camera's view.", this);
                 }
 
-                Vector3 above = new Vector3(rest.x, _hoverPoint.position.y, rest.z);
-                if (!IsOnScreen(above))
+                // Makey at the lowest and the highest hover height over this cow, after the flight band.
+                Vector3 lowest = new Vector3(rest.x, ClampToFlightBand(rest, rest.y + _config.HoverHeightMin), rest.z);
+                Vector3 highest = new Vector3(rest.x, ClampToFlightBand(rest, rest.y + HighestHoverAbove(rest)), rest.z);
+                if (!IsOnScreen(lowest) || !IsOnScreen(highest))
                 {
-                    Debug.LogWarning("Makey would be outside the camera's view above cow " + i + " ('" + cow.name + "') at " + above.ToString("F1")
-                        + ". Move the cow, or lower the hover point.", this);
+                    Debug.LogWarning("Makey would be outside the camera's view above cow " + i + " ('" + cow.name + "'), between "
+                        + lowest.ToString("F1") + " and " + highest.ToString("F1") + ". Move the cow, or narrow the hover height range or the flight band.", this);
                 }
             }
         }
 
         private bool IsOnScreen(Vector3 point)
         {
-            Vector3 view = _checkCamera.WorldToViewportPoint(point);
+            Vector3 view = _camera.WorldToViewportPoint(point);
             return view.z > 0f && view.x >= 0f && view.x <= 1f && view.y >= 0f && view.y <= 1f;
+        }
+
+        // The world height Makey hovers at over a cow: a random height above the cow's resting
+        // position, inside the flight band so he stays on screen and clear of the HUD.
+        private float ChooseHoverHeight(Vector3 rest)
+        {
+            float above = UnityEngine.Random.Range(_config.HoverHeightMin, HighestHoverAbove(rest));
+            return ClampToFlightBand(rest, rest.y + above);
+        }
+
+        // The top of the hover height range over this cow. Over a near cow only part of the range
+        // is used, because the same world height looks higher on screen there; the minimum is kept.
+        // With no camera the whole range is used.
+        private float HighestHoverAbove(Vector3 rest)
+        {
+            float min = _config.HoverHeightMin;
+            float range = _config.HoverHeightMax - min;
+
+            if (_camera == null)
+            {
+                return min + range;
+            }
+
+            Transform cameraTransform = _camera.transform;
+            float depth = Vector3.Dot(rest - cameraTransform.position, cameraTransform.forward);
+            float scale = HoverHeightSolver.RangeScale(depth, _config.NearDistance, _config.FarDistance, _config.NearHeightScale);
+            return min + range * scale;
+        }
+
+        // Pulls a height into the flight band for the line above this cow. The band is on the
+        // screen and the heights are in the world, so the camera turns one into the other. With no
+        // camera, an orthographic one, or a line the camera cannot place, the height is left alone.
+        private float ClampToFlightBand(Vector3 rest, float height)
+        {
+            if (_camera == null || _camera.orthographic)
+            {
+                return height;
+            }
+
+            Transform cameraTransform = _camera.transform;
+            bool lowFound = HoverHeightSolver.TryHeightAtViewportY(
+                cameraTransform.position, cameraTransform.forward, cameraTransform.up,
+                _camera.fieldOfView, rest, _config.FlightBandMinY, out float bandLow);
+            bool highFound = HoverHeightSolver.TryHeightAtViewportY(
+                cameraTransform.position, cameraTransform.forward, cameraTransform.up,
+                _camera.fieldOfView, rest, _config.FlightBandMaxY, out float bandHigh);
+
+            if (!lowFound || !highFound)
+            {
+                return height;
+            }
+
+            return Mathf.Clamp(height, Mathf.Min(bandLow, bandHigh), Mathf.Max(bandLow, bandHigh));
         }
 
         // One status line a second, so a quiet Makey can be told apart from a stuck one.

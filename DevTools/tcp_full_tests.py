@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Sends fake sensor messages to the game over UDP, so the whole hit pipeline and the calibration
-can be tried before the real sensor arrives. Standard library only (Python 3.6 or newer), so
-there is nothing to pip install.
+Connects to the game over TCP and sends fake hardware messages, so the whole hit pipeline and the
+calibration can be tried before the real sensor and cannon are connected. Standard library only
+(Python 3.6 or newer), so there is nothing to pip install.
 
 Start the game in Play mode first, then run one of:
 
-    python udp_full_tests.py                    sweep, bad, noise and duplicates
-    python udp_full_tests.py sweep bad          only those tests
-    python udp_full_tests.py calibrate --sensor lidar
-    python udp_full_tests.py sweep --sensor lidar --delay 0.05
-    python udp_full_tests.py --host 192.168.1.20 --port 9000
+    python tcp_full_tests.py                    sweep, bad, noise, duplicates and cannon
+    python tcp_full_tests.py sweep bad          only those tests
+    python tcp_full_tests.py sweep --cannon     LOAD the ball color, then hits with no color
+    python tcp_full_tests.py calibrate --sensor lidar
+    python tcp_full_tests.py sweep --sensor lidar --delay 0.05
+    python tcp_full_tests.py --host 192.168.1.20 --port 9000
 
 Tests:
     sweep       a lap around the edge of the screen, then a zig-zag over all of it (0,0 to 1,1)
@@ -18,8 +19,13 @@ Tests:
     noise       many hits scattered around a few spots, like a jittery sensor
     duplicates  the same impact reported two or three times, like a lidar seeing a ball on
                 consecutive sweeps (the hardware is supposed to send only one)
+    cannon      the cannon loads each color in turn (LOAD), then the wall sensor reports hits with
+                no color, which the game reports with the loaded color
     calibrate   walks you through the game's F9 calibration, then checks it (asks for Enter, so it
                 is only run when named)
+
+By default each hit carries its own color. With --cannon a hit has no color, and a LOAD message
+is sent first whenever the color changes, the way the real cannon and wall sensor work.
 
 The sensor options (--sensor, --rotate, ...) change where the fake sensor says a hit happened,
 the way a badly aligned real sensor would. Calibrate with a setting, then run the other tests with
@@ -33,9 +39,9 @@ import socket
 import sys
 import time
 
-COLORS = ["RED", "BLUE", "YELLOW", "GREEN"]
+COLORS = ["RED", "BLUE", "YELLOW", "GREEN", "PURPLE", "ORANGE"]
 CORNER_NAMES = ["bottom left", "bottom right", "top right", "top left"]
-DEFAULT_TESTS = ["sweep", "bad", "noise", "duplicates"]
+DEFAULT_TESTS = ["sweep", "bad", "noise", "duplicates", "cannon"]
 ALL_TESTS = DEFAULT_TESTS + ["calibrate"]
 
 
@@ -90,14 +96,22 @@ PRESETS = {
 
 
 class Sender(object):
+    """One TCP connection to the game. Every message is one line, so a line end follows it."""
+
     def __init__(self, host, port, delay):
         self.address = (host, port)
         self.delay = delay
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.count = 0
+        try:
+            self.sock = socket.create_connection(self.address, timeout=5)
+        except OSError as error:
+            raise SystemExit("Could not connect to the game at {}:{} ({}). "
+                             "Is it in Play mode?".format(host, port, error))
+        # Messages are tiny. Send each at once instead of waiting to fill a packet.
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
     def send(self, payload, wait=None):
-        self.sock.sendto(payload, self.address)
+        self.sock.sendall(payload + b"\n")
         self.count += 1
         time.sleep(self.delay if wait is None else wait)
 
@@ -114,20 +128,40 @@ class Context(object):
         self.rng = rng
         self.args = args
         self.expected_rejected = 0
+        self.loaded = None
 
     def color_for(self, index):
         if self.args.color:
             return self.args.color
         return COLORS[index % len(COLORS)]
 
-    def send_hit(self, x, y, color, noise=0.0, wait=None, note=""):
-        """Sends a HIT for the true position (x, y), as the fake sensor would report it."""
+    def load(self, color):
+        """Sends LOAD, as the cannon's color sensor does when a ball goes in."""
+        message = "LOAD {}".format(color)
+        print("  {:<26} the cannon loads a {} ball".format(message, color.lower()))
+        self.sender.send(message.encode("ascii"))
+        self.loaded = color
+
+    def send_hit(self, x, y, color, noise=0.0, wait=None, note="", as_cannon=None):
+        """Sends a HIT for the true position (x, y), as the fake sensor would report it.
+
+        With the cannon on (--cannon, or as_cannon) the hit has no color, and a LOAD goes first if
+        the cannon does not already hold this color.
+        """
         sensor_x, sensor_y = self.model.apply(x, y)
         if noise > 0.0:
             sensor_x += self.rng.gauss(0.0, noise)
             sensor_y += self.rng.gauss(0.0, noise)
 
-        message = "HIT {:.4f} {:.4f} {}".format(sensor_x, sensor_y, color)
+        use_cannon = self.args.cannon if as_cannon is None else as_cannon
+        if use_cannon:
+            if self.loaded != color:
+                self.load(color)
+            message = "HIT {:.4f} {:.4f}".format(sensor_x, sensor_y)
+            note = "{} (ball {})".format(note, color.lower()).strip()
+        else:
+            message = "HIT {:.4f} {:.4f} {}".format(sensor_x, sensor_y, color)
+
         print("  {:<26} true ({:.2f}, {:.2f}) {}".format(message, x, y, note).rstrip())
         self.sender.send(message.encode("ascii"), wait)
 
@@ -181,17 +215,26 @@ def run_sweep(ctx):
 # ---------------------------------------------------------------------------------------------
 
 def bad_messages(rng):
-    """(payload, the game should reject it, what it is). Mirrors HitMessageParser in the game."""
-    garbage = bytes(rng.getrandbits(8) for _ in range(32))
+    """(payload, the game should reject it, what it is). Mirrors HitMessageParser in the game.
+
+    Every payload is sent as one line. The random bytes leave out the line end, which would split
+    them into several lines and make the count unpredictable.
+    """
+    garbage = bytes(b for b in (rng.getrandbits(8) for _ in range(32)) if b != 0x0A)
     return [
         # Must be rejected.
-        (b"", True, "empty packet"),
-        (b"   ", True, "only spaces"),
         (b"HELLO", True, "not a HIT"),
         (b"HIT", True, "no fields"),
-        (b"HIT 0.5", True, "missing y and color"),
-        (b"HIT 0.5 0.5", True, "missing color"),
+        (b"HIT 0.5", True, "missing y"),
         (b"HIT 0.5 0.5 RED EXTRA", True, "one field too many"),
+        (b"HIT 0.5 b", True, "y is not a number (no color)"),
+        (b"LOAD", True, "LOAD with no color"),
+        (b"LOAD PURPLE", True, "LOAD with an unknown color"),
+        (b"LOAD 2", True, "LOAD with the color as a number"),
+        (b"LOAD RED BLUE", True, "LOAD with two colors"),
+        (b"LOADRED", True, "no space after LOAD"),
+        (b"START 1", True, "START with something after it"),
+        (b"STARTX", True, "not START"),
         (b"HIT a b RED", True, "x and y are not numbers"),
         (b"HIT 0.5 b RED", True, "y is not a number"),
         (b"HIT 0.5 0.5 PURPLE", True, "unknown color"),
@@ -206,12 +249,20 @@ def bad_messages(rng):
         (b"HIT 0.5 0.5 RED\x00", True, "stray zero byte"),
         (b"HIT 0.5 0.5 R\xc3\x89D", True, "non-ASCII letter in the color"),
         (b'{"x": 0.5, "y": 0.5, "color": "red"}', True, "JSON instead of text"),
-        (b"HIT 0.5 0.5 RED\nHIT 0.2 0.2 BLUE", True, "two messages in one packet"),
-        (b"A" * 5000, True, "5000 characters of junk"),
-        (garbage, True, "32 random bytes"),
+        (b"A" * 5000, True, "5000 characters of junk in one line"),
+        (garbage, True, "random bytes"),
         # Valid, so they must NOT be counted as rejected.
+        (b"", False, "valid: a blank line, ignored and not counted"),
+        (b"   ", False, "valid: only spaces, ignored and not counted"),
+        (b"HIT 0.5 0.5 RED\nHIT 0.2 0.2 BLUE", False, "valid: two lines in one write, both read"),
+        (b"HIT 0.5 0.5", False, "valid: no color (the loaded ball's; dropped if none)"),
+        (b"hit 0.25 0.75", False, "valid: no color, lower case"),
+        (b"LOAD RED", False, "valid: loads a red ball"),
+        (b"load blue", False, "valid: lower case"),
+        (b"  LOAD   Yellow  ", False, "valid: extra spaces"),
+        (b"LOAD GREEN", False, "valid: loads a green ball (the cannon ends up green)"),
         (b"hit 0.5 0.5 red", False, "valid: lower case"),
-        (b"  HIT   0.25    0.75   Blue  \r\n", False, "valid: extra spaces and a line end"),
+        (b"  HIT   0.25    0.75   Blue  \r", False, "valid: extra spaces and a CRLF line end"),
         (b"HIT 1e-1 5E-1 GREEN", False, "valid: exponent notation -> (0.1, 0.5)"),
         (b"HIT +.5 .5 yellow", False, "valid: sign and no leading zero -> (0.5, 0.5)"),
         (b"HIT 0 0 RED", False, "valid: bottom left corner"),
@@ -227,7 +278,9 @@ def bad_messages(rng):
 def run_bad(ctx):
     print("\n== bad: messages the game must reject, and odd ones it must accept ==")
     print("Expect: no Console errors. The overlay line 'rejected' goes up only for the messages")
-    print("marked REJECT. Messages marked ok are counted as hits (some land off the picture).")
+    print("marked REJECT. Messages marked ok are not rejected: most are hits (some land off the")
+    print("picture), LOAD messages change the cannon, and blank lines are ignored. A hit with no")
+    print("color is dropped, and counted under 'no ball', while the cannon is empty.")
 
     rejected = 0
     for payload, should_reject, what in bad_messages(ctx.rng):
@@ -288,6 +341,25 @@ def run_duplicates(ctx):
 
 
 # ---------------------------------------------------------------------------------------------
+# cannon
+# ---------------------------------------------------------------------------------------------
+
+def run_cannon(ctx):
+    print("\n== cannon: LOAD each color, then hits with no color ==")
+    print("The cannon's color sensor sends LOAD when a ball goes in, and the wall sensor then sends")
+    print("HIT x y with no color. The game reports the hit with the loaded color, and the color stays")
+    print("until the next LOAD.")
+    print("Expect: the Cannon row shows each color in turn, and both markers after a LOAD take it.")
+
+    spots = [(0.25, 0.25), (0.75, 0.25), (0.75, 0.75), (0.25, 0.75)]
+    for index, (x, y) in enumerate(spots):
+        color = ctx.color_for(index)
+        print("Ball {}:".format(index + 1))
+        ctx.send_hit(x, y, color, as_cannon=True)
+        ctx.send_hit(x + 0.05, y + 0.05, color, as_cannon=True, note="same ball, no new LOAD")
+
+
+# ---------------------------------------------------------------------------------------------
 # calibrate
 # ---------------------------------------------------------------------------------------------
 
@@ -339,6 +411,7 @@ RUNNERS = {
     "bad": run_bad,
     "noise": run_noise,
     "duplicates": run_duplicates,
+    "cannon": run_cannon,
     "calibrate": run_calibrate,
 }
 
@@ -364,19 +437,22 @@ def build_model(args):
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(
-        description="Send fake sensor messages to the game over UDP.",
+        description="Connect to the game over TCP and send fake hardware messages.",
         epilog="Tests: " + ", ".join(ALL_TESTS) + ". With none named: " + ", ".join(DEFAULT_TESTS) + ".")
     parser.add_argument("tests", nargs="*", metavar="test", help="which tests to run")
 
     network = parser.add_argument_group("where to send")
     network.add_argument("--host", default="127.0.0.1", help="game PC address (default 127.0.0.1)")
-    network.add_argument("--port", type=int, default=9000, help="game UDP port (default 9000)")
+    network.add_argument("--port", type=int, default=9000, help="game TCP port (default 9000)")
     network.add_argument("--delay", type=float, default=0.15,
                          help="seconds between messages (default 0.15)")
 
     path = parser.add_argument_group("what to send")
     path.add_argument("--color", type=str.upper, choices=COLORS,
-                      help="use one color for every hit (default: cycle through all four)")
+                      help="use one color for every hit (default: cycle through all six)")
+    path.add_argument("--cannon", action="store_true",
+                      help="send hits with no color, with a LOAD before each change of color "
+                           "(default: every hit carries its color)")
     path.add_argument("--steps", type=int, default=10,
                       help="points per side in the lap around the edge (default 10)")
     path.add_argument("--grid", type=int, default=10,
@@ -432,8 +508,9 @@ def main(argv=None):
     sender = Sender(args.host, args.port, args.delay)
     ctx = Context(sender, model, rng, args)
 
-    print("Sending to {}:{}, {} s between messages".format(args.host, args.port, args.delay))
+    print("Connected to {}:{}, {} s between messages".format(args.host, args.port, args.delay))
     print("Fake sensor: {}".format(model.describe()))
+    print("Hits carry: {}".format("no color (LOAD first)" if args.cannon else "their own color"))
     print("Tests: {}".format(", ".join(tests)))
 
     try:
@@ -441,6 +518,8 @@ def main(argv=None):
             RUNNERS[name](ctx)
     except KeyboardInterrupt:
         print("\nStopped.")
+    except OSError as error:
+        print("\nLost the connection to the game: {}".format(error))
     finally:
         sender.close()
 

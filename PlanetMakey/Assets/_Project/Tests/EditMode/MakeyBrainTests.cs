@@ -177,6 +177,92 @@ namespace PlanetMakey.Tests.EditMode
             Assert.That(brain.ShieldColor, Is.Not.EqualTo(first));
         }
 
+        private static MakeyBrain ShieldedBrainWithColors(int seed, params BallColor[] colors)
+        {
+            var brain = new MakeyBrain(EnterSeconds, DazeSeconds, RecoverSeconds, LeaveSeconds, new Random(seed), colors);
+            brain.Enter();
+            brain.Tick(EnterSeconds);
+            return brain;
+        }
+
+        [Test]
+        public void ShieldColors_OnlyTheListedColorsAreUsed_AndNeverTwiceInARow()
+        {
+            MakeyBrain brain = ShieldedBrainWithColors(3, BallColor.Purple, BallColor.Orange, BallColor.Green);
+            var allowed = new HashSet<BallColor> { BallColor.Purple, BallColor.Orange, BallColor.Green };
+            var seen = new HashSet<BallColor> { brain.ShieldColor };
+            BallColor previous = brain.ShieldColor;
+            Assert.That(allowed, Does.Contain(previous));
+
+            for (int i = 0; i < 200; i++)
+            {
+                brain.ReceiveBall(brain.ShieldColor);
+                brain.Tick(DazeSeconds);
+                brain.Tick(RecoverSeconds);
+
+                Assert.That(allowed, Does.Contain(brain.ShieldColor), "cycle " + i);
+                Assert.That(brain.ShieldColor, Is.Not.EqualTo(previous), "cycle " + i);
+                previous = brain.ShieldColor;
+                seen.Add(previous);
+            }
+
+            Assert.That(seen, Is.EquivalentTo(allowed));
+        }
+
+        [Test]
+        public void ShieldColors_TwoColors_AlternateEveryTime()
+        {
+            MakeyBrain brain = ShieldedBrainWithColors(5, BallColor.Red, BallColor.Blue);
+            BallColor previous = brain.ShieldColor;
+
+            for (int i = 0; i < 20; i++)
+            {
+                brain.ReceiveBall(brain.ShieldColor);
+                brain.Tick(DazeSeconds);
+                brain.Tick(RecoverSeconds);
+
+                Assert.That(brain.ShieldColor, Is.Not.EqualTo(previous), "cycle " + i);
+                previous = brain.ShieldColor;
+            }
+        }
+
+        [Test]
+        public void ShieldColors_OneColor_IsAlwaysThatColor()
+        {
+            MakeyBrain brain = ShieldedBrainWithColors(2, BallColor.Orange);
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.That(brain.ShieldColor, Is.EqualTo(BallColor.Orange));
+                brain.ReceiveBall(BallColor.Orange);
+                brain.Tick(DazeSeconds);
+                brain.Tick(RecoverSeconds);
+            }
+        }
+
+        [Test]
+        public void ShieldColors_NullEmptyAndRepeats_FallBackOrCountOnce()
+        {
+            MakeyBrain none = new MakeyBrain(EnterSeconds, DazeSeconds, RecoverSeconds, LeaveSeconds, new Random(1), null);
+            MakeyBrain empty = ShieldedBrainWithColors(1);
+            none.Enter();
+            none.Tick(EnterSeconds);
+            Assert.That(Enum.IsDefined(typeof(BallColor), none.ShieldColor), Is.True);
+            Assert.That(Enum.IsDefined(typeof(BallColor), empty.ShieldColor), Is.True);
+
+            // The same color listed twice is one color, so it still never repeats back to back with a second one.
+            MakeyBrain twice = ShieldedBrainWithColors(4, BallColor.Red, BallColor.Red, BallColor.Blue);
+            BallColor previous = twice.ShieldColor;
+            for (int i = 0; i < 20; i++)
+            {
+                twice.ReceiveBall(twice.ShieldColor);
+                twice.Tick(DazeSeconds);
+                twice.Tick(RecoverSeconds);
+                Assert.That(twice.ShieldColor, Is.Not.EqualTo(previous), "cycle " + i);
+                previous = twice.ShieldColor;
+            }
+        }
+
         [Test]
         public void ShieldColor_NeverRepeatsBackToBack_AndEveryColorComesUp()
         {

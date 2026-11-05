@@ -183,6 +183,29 @@ namespace PlanetMakey.Game.Round
             return true;
         }
 
+        /// <summary>
+        /// Skips the rest of the night, as if the timer had run out: dawn begins now, the light comes
+        /// up, Makey flies off with the escape clip, and the score is the cows kept so far (a cow being
+        /// lifted counts). Returns false, and does nothing, outside the night.
+        /// </summary>
+        public bool SkipToDawn()
+        {
+            if (_brain == null)
+            {
+                return false;
+            }
+
+            if (_brain.State != RoundState.Night)
+            {
+                Log("Skip ignored: the round is " + _brain.State + ", and only the night can be skipped.");
+                return false;
+            }
+
+            Log("The operator skipped the rest of the night: dawn begins now.");
+            _brain.EndNightEarly();
+            return true;
+        }
+
         private void OnStartRequested()
         {
             RequestStart();

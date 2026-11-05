@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2f4e54798b5df0d43b3097e8db3fbccb, type: 3}
   m_Name: RoundConfig
   m_EditorClassIdentifier: PlanetMakey.Game::PlanetMakey.Game.Round.RoundConfig
-  _duskSeconds: 4
-  _nightSeconds: 180
-  _dawnSeconds: 8
+  _duskSeconds: 5
+  _nightSeconds: 150
+  _dawnSeconds: 5

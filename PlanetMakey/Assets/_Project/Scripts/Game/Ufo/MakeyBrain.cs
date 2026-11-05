@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using PlanetMakey.Core;
 
 namespace PlanetMakey.Game.Ufo
@@ -21,7 +22,7 @@ namespace PlanetMakey.Game.Ufo
         private readonly float _recoverSeconds;
         private readonly float _leaveSeconds;
         private readonly Random _random;
-        private readonly int _colorCount;
+        private readonly BallColor[] _colors;
 
         private float _stateTime;
         private bool _hasLastColor;
@@ -42,6 +43,17 @@ namespace PlanetMakey.Game.Ufo
         /// <param name="leaveSeconds">Time spent flying off screen after <see cref="Leave"/>.</param>
         /// <param name="random">Picks the shield colors. Pass a seeded one to repeat a run.</param>
         public MakeyBrain(float enterSeconds, float dazeSeconds, float recoverSeconds, float leaveSeconds, Random random)
+            : this(enterSeconds, dazeSeconds, recoverSeconds, leaveSeconds, random, null)
+        {
+        }
+
+        /// <param name="enterSeconds">Time spent flying in. Negative values count as zero.</param>
+        /// <param name="dazeSeconds">Time spent dazed after a shield breaks.</param>
+        /// <param name="recoverSeconds">Time spent recovering before the next shield.</param>
+        /// <param name="leaveSeconds">Time spent flying off screen after <see cref="Leave"/>.</param>
+        /// <param name="random">Picks the shield colors. Pass a seeded one to repeat a run.</param>
+        /// <param name="shieldColors">The colors the shield may have. Null or empty means every color. Repeats count once.</param>
+        public MakeyBrain(float enterSeconds, float dazeSeconds, float recoverSeconds, float leaveSeconds, Random random, IReadOnlyList<BallColor> shieldColors)
         {
             if (random == null)
             {
@@ -53,8 +65,31 @@ namespace PlanetMakey.Game.Ufo
             _recoverSeconds = Math.Max(0f, recoverSeconds);
             _leaveSeconds = Math.Max(0f, leaveSeconds);
             _random = random;
-            _colorCount = Enum.GetValues(typeof(BallColor)).Length;
+            _colors = ChooseColors(shieldColors);
             State = MakeyState.Away;
+        }
+
+        // The colors in use, each once. With nothing asked for, every color there is.
+        private static BallColor[] ChooseColors(IReadOnlyList<BallColor> requested)
+        {
+            var colors = new List<BallColor>();
+            if (requested != null)
+            {
+                for (int i = 0; i < requested.Count; i++)
+                {
+                    if (!colors.Contains(requested[i]))
+                    {
+                        colors.Add(requested[i]);
+                    }
+                }
+            }
+
+            if (colors.Count == 0)
+            {
+                colors.AddRange((BallColor[])Enum.GetValues(typeof(BallColor)));
+            }
+
+            return colors.ToArray();
         }
 
         /// <summary>What Makey is doing now.</summary>
@@ -198,18 +233,18 @@ namespace PlanetMakey.Game.Ufo
             SetState(MakeyState.Shielded);
         }
 
-        // Any color for the first shield. After that, any color except the previous one, so
-        // the same color never comes up twice in a row. This relies on BallColor's values being
-        // 0, 1, 2 and so on without gaps, which is how the enum is written.
+        // Any color in use for the first shield. After that, any color in use except the previous
+        // one, so the same color never comes up twice in a row (with one color in use it has to).
         private BallColor PickColor()
         {
-            if (!_hasLastColor)
+            if (!_hasLastColor || _colors.Length == 1)
             {
-                return (BallColor)_random.Next(_colorCount);
+                return _colors[_random.Next(_colors.Length)];
             }
 
-            int step = _random.Next(_colorCount - 1) + 1;
-            return (BallColor)(((int)_lastColor + step) % _colorCount);
+            int last = Array.IndexOf(_colors, _lastColor);
+            int step = _random.Next(_colors.Length - 1) + 1;
+            return _colors[(last + step) % _colors.Length];
         }
 
         private float DurationOf(MakeyState state)

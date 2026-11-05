@@ -5,13 +5,15 @@ using UnityEngine.InputSystem;
 namespace PlanetMakey.Hits
 {
     /// <summary>
-    /// Stands in for the booth hardware: a left click is a ball hit at the pointer, and the
-    /// keys 1 to 4 choose the ball color (red, blue, yellow, green).
+    /// Stands in for the wall sensor: a left click is a ball hit at the pointer, reported with the
+    /// color of the ball loaded in the <see cref="Cannon"/>, as a hit with no color from the real
+    /// sensor would be. A click does nothing while the cannon is empty.
     /// </summary>
     public sealed class MouseHitSource : HitSource
     {
-        [Tooltip("The ball color used until a color key is pressed.")]
-        [SerializeField] private BallColor _selectedColor = BallColor.Red;
+        [Header("Wiring")]
+        [Tooltip("The cannon whose loaded ball color a click is reported with. Keys 1 to 6 load it by hand.")]
+        [SerializeField] private Cannon _cannon;
 
         [Header("Test skew")]
         [Tooltip("Distorts the click positions the way a badly aligned sensor would, so calibration can be tried at a desk.")]
@@ -26,39 +28,17 @@ namespace PlanetMakey.Hits
         [Tooltip("Shift, as a fraction of the screen.")]
         [SerializeField] private Vector2 _skewOffset = new Vector2(0.1f, -0.05f);
 
-        /// <summary>The color the next click will be reported with.</summary>
-        public BallColor SelectedColor => _selectedColor;
+        private void OnEnable()
+        {
+            if (_cannon == null)
+            {
+                Debug.LogWarning("MouseHitSource has no Cannon, so a click can never be reported with a color.", this);
+            }
+        }
 
         private void Update()
         {
-            ReadColorKeys();
             ReadClick();
-        }
-
-        private void ReadColorKeys()
-        {
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
-            {
-                return;
-            }
-
-            if (keyboard.digit1Key.wasPressedThisFrame)
-            {
-                _selectedColor = BallColor.Red;
-            }
-            else if (keyboard.digit2Key.wasPressedThisFrame)
-            {
-                _selectedColor = BallColor.Blue;
-            }
-            else if (keyboard.digit3Key.wasPressedThisFrame)
-            {
-                _selectedColor = BallColor.Yellow;
-            }
-            else if (keyboard.digit4Key.wasPressedThisFrame)
-            {
-                _selectedColor = BallColor.Green;
-            }
         }
 
         private void ReadClick()
@@ -70,6 +50,12 @@ namespace PlanetMakey.Hits
             }
 
             if (!mouse.leftButton.wasPressedThisFrame)
+            {
+                return;
+            }
+
+            // No ball loaded means nothing was thrown. The operator panel shows the cannon is empty.
+            if (_cannon == null || !_cannon.HasBall)
             {
                 return;
             }
@@ -95,7 +81,7 @@ namespace PlanetMakey.Hits
                 position = ApplySkew(position);
             }
 
-            RaiseHit(new BallHit(position, _selectedColor));
+            RaiseHit(new BallHit(position, _cannon.LoadedColor));
         }
 
         // The result may fall outside 0 to 1, as a misaligned sensor's would.

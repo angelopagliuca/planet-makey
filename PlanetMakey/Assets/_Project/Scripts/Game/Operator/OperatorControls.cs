@@ -2,12 +2,14 @@ using PlanetMakey.Game.Round;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using UnityEngine.Serialization;
 
 namespace PlanetMakey.Game.Operator
 {
     /// <summary>
     /// The operator's keys that are not tied to one system: Shift shows and hides the
-    /// <see cref="OperatorOverlay"/>, and holding Space during a round aborts it. Starting a round
+    /// <see cref="OperatorOverlay"/>, and holding Space during the night skips the rest of it, so
+    /// the round goes on to dawn with the light changing as usual. Starting a round
     /// (Space, <see cref="KeyRoundStartSource"/>) and calibrating (F9, CalibrationMode) have their own
     /// components.
     /// </summary>
@@ -19,13 +21,15 @@ namespace PlanetMakey.Game.Operator
         [Tooltip("The panel the Shift key shows and hides.")]
         [SerializeField] private OperatorOverlay _overlay;
 
-        [Header("Abort")]
-        [Tooltip("Hold this key during dusk or night to abort the round. A press that starts a round does not count: let go and press again.")]
-        [SerializeField] private Key _abortKey = Key.Space;
+        [Header("Skip the night")]
+        [Tooltip("Hold this key during the night to skip the rest of it, as if the timer had run out: dawn begins, Makey leaves, and the score is the cows kept so far. A press that starts a round does not count: let go and press again.")]
+        [FormerlySerializedAs("_abortKey")]
+        [SerializeField] private Key _skipKey = Key.Space;
 
-        [Tooltip("Seconds the abort key must be held before the round is aborted. Long enough that a tap on the start key never aborts a round.")]
+        [Tooltip("Seconds the skip key must be held before the night is skipped. Long enough that a tap on the start key never skips a night.")]
         [Min(0f)]
-        [SerializeField] private float _abortHoldSeconds = 1.5f;
+        [FormerlySerializedAs("_abortHoldSeconds")]
+        [SerializeField] private float _skipHoldSeconds = 1.5f;
 
         // True while a press that began during a round is still held, and for how long.
         private bool _holdArmed;
@@ -43,7 +47,7 @@ namespace PlanetMakey.Game.Operator
 
             if (_round == null)
             {
-                Debug.LogWarning("OperatorControls has no RoundController, so the abort key will do nothing.", this);
+                Debug.LogWarning("OperatorControls has no RoundController, so the skip key will do nothing.", this);
             }
             else
             {
@@ -72,7 +76,7 @@ namespace PlanetMakey.Game.Operator
                     _overlay.Toggle();
                 }
 
-                UpdateAbortHold(keyboard);
+                UpdateSkipHold(keyboard);
             }
 
             if (_round != null)
@@ -81,19 +85,20 @@ namespace PlanetMakey.Game.Operator
             }
         }
 
-        private void UpdateAbortHold(Keyboard keyboard)
+        private void UpdateSkipHold(Keyboard keyboard)
         {
-            if (_round == null || _abortKey == Key.None)
+            if (_round == null || _skipKey == Key.None)
             {
                 return;
             }
 
-            KeyControl key = keyboard[_abortKey];
+            KeyControl key = keyboard[_skipKey];
 
             if (key.wasPressedThisFrame)
             {
-                // Only a press made while a round was already running can become an abort.
-                _holdArmed = _previousState == RoundState.Dusk || _previousState == RoundState.Night;
+                // Only a press made during the night can become a skip. A press in dusk is too early:
+                // the night has not started, and dusk is short.
+                _holdArmed = _previousState == RoundState.Night;
                 _heldSeconds = 0f;
             }
 
@@ -110,10 +115,10 @@ namespace PlanetMakey.Game.Operator
 
             // Unscaled, so the hold works even if the game is paused with a zero time scale.
             _heldSeconds += Time.unscaledDeltaTime;
-            if (_heldSeconds >= _abortHoldSeconds)
+            if (_heldSeconds >= _skipHoldSeconds)
             {
                 _holdArmed = false;
-                _round.Abort();
+                _round.SkipToDawn();
             }
         }
     }
