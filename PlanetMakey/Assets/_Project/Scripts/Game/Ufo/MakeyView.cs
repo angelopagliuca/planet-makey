@@ -15,6 +15,12 @@ namespace PlanetMakey.Game.Ufo
         // The color property of the URP Lit shader.
         private const string BaseColorProperty = "_BaseColor";
 
+        // The glow strength of the PlanetMakey/Shield shader.
+        private const string GlowProperty = "_Glow";
+
+        // How much brighter the shield glows at the peak of the flash after a wrong color hits.
+        private const float FlashGlowBoost = 0.8f;
+
         [Header("Wiring")]
         [SerializeField] private Makey _makey;
 
@@ -24,7 +30,7 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("The object that holds the model. It is bobbed, spun and shaken, so the collider on the Makey object stays still.")]
         [SerializeField] private Transform _modelPivot;
 
-        [Tooltip("The shield: a sphere around the model with no collider, using a transparent URP Lit material.")]
+        [Tooltip("The shield: a sphere around the model with no collider, using a material with the PlanetMakey/Shield shader (a transparent URP Lit material still works, without the glow).")]
         [SerializeField] private Renderer _shield;
 
         [Tooltip("Optional. Switched on while Makey is dazed, for example a few small stars.")]
@@ -44,9 +50,13 @@ namespace PlanetMakey.Game.Ufo
         [SerializeField] private string _escapeStateName = "Escape";
 
         [Header("Shield")]
-        [Tooltip("How see-through the shield is, from 0 (invisible) to 1.")]
+        [Tooltip("How strong the shield is, from 0 (invisible) to 1. The shield shader turns it into a faint fill and a brighter rim.")]
         [Range(0f, 1f)]
         [SerializeField] private float _shieldAlpha = 0.4f;
+
+        [Tooltip("How hard the shield glows: its color is multiplied by this, so values above 1 are brighter than the screen's white and Bloom makes them glow. Needs the PlanetMakey/Shield shader and Bloom (the night grade has it).")]
+        [Range(0f, 8f)]
+        [SerializeField] private float _shieldGlow = 2.5f;
 
         [Tooltip("Seconds the shield takes to burst.")]
         [Min(0.01f)]
@@ -675,15 +685,16 @@ namespace PlanetMakey.Game.Ufo
                 Color color = Color.Lerp(shieldColor, _flashColor, glow);
                 float alpha = Mathf.Lerp(_shieldAlpha, 0.9f, glow) * UrgencyFlicker();
 
-                ShowShield(color, alpha, 1f);
+                // A wrong color makes it flare up for a moment.
+                ShowShield(color, alpha, 1f, 1f + FlashGlowBoost * glow);
                 return;
             }
 
             if (_shatterLeft > 0f)
             {
-                // Bursting: the shield grows and fades away.
+                // Bursting: the shield grows and fades away, glowing brighter as it goes.
                 float burst = 1f - _shatterLeft / _shatterSeconds;
-                ShowShield(_shatterColor, _shieldAlpha * (1f - burst), Mathf.Lerp(1f, _shatterGrowth, burst));
+                ShowShield(_shatterColor, _shieldAlpha * (1f - burst), Mathf.Lerp(1f, _shatterGrowth, burst), 1f + burst);
                 return;
             }
 
@@ -691,7 +702,7 @@ namespace PlanetMakey.Game.Ufo
             _shieldShown = false;
         }
 
-        private void ShowShield(Color color, float alpha, float sizeFactor)
+        private void ShowShield(Color color, float alpha, float sizeFactor, float glowFactor)
         {
             if (_block == null)
             {
@@ -699,6 +710,7 @@ namespace PlanetMakey.Game.Ufo
             }
 
             _block.SetColor(BaseColorProperty, new Color(color.r, color.g, color.b, alpha));
+            _block.SetFloat(GlowProperty, _shieldGlow * glowFactor);
             _shield.SetPropertyBlock(_block);
             _shield.transform.localScale = _shieldScale * sizeFactor;
             _shield.enabled = true;
@@ -924,6 +936,12 @@ namespace PlanetMakey.Game.Ufo
             else if (material.HasProperty("_Surface") && material.GetFloat("_Surface") < 0.5f)
             {
                 Debug.LogWarning("The shield material '" + material.name + "' is Opaque, so the shield will be a solid ball. Set its Surface Type to Transparent.", this);
+            }
+
+            if (material != null && !material.HasProperty(GlowProperty))
+            {
+                Debug.LogWarning("The shield material '" + material.name + "' (shader " + shaderName
+                    + ") has no " + GlowProperty + ", so the shield will not glow. Give the material the shader 'PlanetMakey/Shield'.", this);
             }
 
             if (!_shield.gameObject.activeInHierarchy)

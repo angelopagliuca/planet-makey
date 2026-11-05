@@ -39,7 +39,7 @@ packs from the Unity Asset Store and import them into that folder:
 
 ## Progress
 
-The hit pipeline is done: the cannon tells the game which color ball is loaded, so the wall sensor only has to report where a ball landed. A ball hit arrives from a mouse click or from the booth hardware over the network (TCP), is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield, reacts to right and wrong color hits, and abducts the cows one by one until the shield is broken. A full three-minute round now runs from dusk to dawn: an operator starts it with a key, the players defend the herd, and the cows left at dawn are the score. The booth's start button can start a round by network message, and an operator panel shows the state of the round, the latest hit and the hardware link, with a way to end the night early, so dawn comes up as usual. Next up is sound and animation for every event, and making the game run unattended as a fullscreen build.
+The hit pipeline is done: the cannon tells the game which color ball is loaded, so the wall sensor only has to report where a ball landed. A ball hit arrives from a mouse click or from the booth hardware over the network (TCP), is lined up with the projected picture, and is traced into the scene to the object it lands on. Makey the UFO flies in with a colored shield, reacts to right and wrong color hits, and abducts the cows one by one until the shield is broken. The scene has a sky that changes from day to night, a glowing shield in six colors, a glowing beam that flares out at the ground, and small lamps that come on at dusk. A full three-minute round now runs from dusk to dawn: an operator starts it with a key, the players defend the herd, and the cows left at dawn are the score. The booth's start button can start a round by network message, and an operator panel shows the state of the round, the latest hit and the hardware link, with a way to end the night early, so dawn comes up as usual. Next up is sound and animation for every event, and making the game run unattended as a fullscreen build.
 
 A box is ticked once that step has been built and tested.
 
@@ -58,16 +58,20 @@ A box is ticked once that step has been built and tested.
 - [x] 2.2 Makey abducts cows; a matching hit saves the cow
 - [x] 2.3 Makey hovers at a different height over each cow, always on screen
 - [x] 2.4 Makey leans, sways and strains as he works, with a shadow on the ground and a glowing pool under the beam
-- [ ] 2.5 A night that is dark but readable, with a real sky that changes from day to night
-- [ ] 2.6 The shield glows
-- [ ] 2.7 A polished abduction beam
+- [x] 2.5 A night that is dark but readable, with a real sky that changes from day to night
+- [x] 2.6 The shield glows, and the balls come in six colors
+- [x] 2.7 A polished abduction beam
+- [x] 2.8 Small lamps (tractor headlights, a window) that come on at dusk and go off at dawn
+- [ ] 2.9 Makey glows, so he can be seen coming and going at night (parked for now)
+- [x] 2.10 Clouds drift across the sky
 
 **3. Round flow** (week of October 19): a full round from dusk to dawn
 
 - [x] 3.1 A three-minute night with a score at dawn, then back to idle
 - [x] 3.2 Operator screen and a start signal from the booth
 - [ ] 3.3 Difficulty rises through the night (optional)
-- [ ] 3.4 Holding the start key during the night skips to dawn
+- [x] 3.4 Holding the start key during the night skips to dawn
+- [ ] 3.5 The screen shows the cows left as small icons and the night as a moon that turns into the sun
 
 **4. Booth readiness** (week of October 26): ready for a full day at the faire
 

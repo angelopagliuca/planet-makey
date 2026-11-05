@@ -161,7 +161,8 @@ namespace PlanetMakey.Game.Ufo
                 _config.DazeSeconds,
                 _config.RecoverSeconds,
                 _config.LeaveSeconds,
-                new System.Random());
+                new System.Random(),
+                _config.ShieldColors);
             _brain.StateChanged += OnBrainStateChanged;
 
             if (_cowHerd != null)

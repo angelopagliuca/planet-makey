@@ -180,6 +180,18 @@ namespace PlanetMakey.Hits
                 return true;
             }
 
+            if (string.Equals(token, "PURPLE", StringComparison.OrdinalIgnoreCase))
+            {
+                color = BallColor.Purple;
+                return true;
+            }
+
+            if (string.Equals(token, "ORANGE", StringComparison.OrdinalIgnoreCase))
+            {
+                color = BallColor.Orange;
+                return true;
+            }
+
             color = default;
             return false;
         }

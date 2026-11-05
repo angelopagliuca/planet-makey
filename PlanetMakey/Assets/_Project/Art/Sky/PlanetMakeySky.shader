@@ -1,7 +1,8 @@
 // A gradient sky that changes from day to night: zenith, horizon and ground colors, a warm glow at the
-// horizon for dusk and dawn, procedural stars, a moon and a sun disc. No textures. DayNightView sets
-// _Night (0 day, 1 night), _Warmth (the glow), _SunDirection and _MoonDirection on a copy of the
-// material; the colors below are set on the material itself.
+// horizon for dusk and dawn, procedural stars, a moon and a sun disc, and a few slowly drifting clouds
+// that are white by day, warm at dusk and dawn and dark with a pale edge near the moon at night. No
+// textures. DayNightView sets _Night (0 day, 1 night), _Warmth (the glow), _SunDirection and
+// _MoonDirection on a copy of the material; the colors below are set on the material itself.
 Shader "PlanetMakey/Gradient Sky"
 {
     Properties
@@ -34,6 +35,17 @@ Shader "PlanetMakey/Gradient Sky"
         _MoonSize ("Moon size (degrees)", Range(2, 10)) = 2.5
         _SunColor ("Sun color", Color) = (1.0, 0.95, 0.80, 1)
         _SunSize ("Sun size (degrees)", Range(2, 10)) = 2.8
+
+        [Header(Clouds)]
+        _CloudCoverage ("Coverage (0 none, 1 overcast)", Range(0, 1)) = 0.35
+        _CloudScale ("Scale (higher is smaller clouds)", Range(0.2, 6)) = 1.2
+        _CloudSoftness ("Edge softness", Range(0.02, 0.6)) = 0.25
+        _CloudSpeed ("Drift speed", Range(0, 0.2)) = 0.015
+        _CloudOpacity ("Opacity", Range(0, 1)) = 0.9
+        _CloudHorizonFade ("Fade near the horizon", Range(0.01, 0.4)) = 0.08
+        _CloudDayColor ("Day color", Color) = (1.0, 1.0, 1.0, 1)
+        _CloudDayShade ("Day shade (thick parts)", Color) = (0.70, 0.76, 0.88, 1)
+        _CloudNightColor ("Night color", Color) = (0.17, 0.19, 0.34, 1)
 
         [Header(Set by DayNightView)]
         _Night ("Night amount", Range(0, 1)) = 0
@@ -73,6 +85,15 @@ Shader "PlanetMakey/Gradient Sky"
                 half _MoonSize;
                 half4 _SunColor;
                 half _SunSize;
+                half _CloudCoverage;
+                half _CloudScale;
+                half _CloudSoftness;
+                half _CloudSpeed;
+                half _CloudOpacity;
+                half _CloudHorizonFade;
+                half4 _CloudDayColor;
+                half4 _CloudDayShade;
+                half4 _CloudNightColor;
                 half _Night;
                 half _Warmth;
                 float4 _SunDirection;
@@ -124,6 +145,41 @@ Shader "PlanetMakey/Gradient Sky"
                 return present * (1.0 - smoothstep(0.0, size, distanceToStar)) * twinkle;
             }
 
+            // A pseudo-random number from 0 to 1 for a point on a plane.
+            float Hash12(float2 p)
+            {
+                float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
+                p3 += dot(p3, p3.yzx + 33.33);
+                return frac((p3.x + p3.y) * p3.z);
+            }
+
+            // Smooth random noise from 0 to 1.
+            float Noise2(float2 p)
+            {
+                float2 cell = floor(p);
+                float2 local = frac(p);
+                local = local * local * (3.0 - 2.0 * local);
+                float a = Hash12(cell);
+                float b = Hash12(cell + float2(1.0, 0.0));
+                float c = Hash12(cell + float2(0.0, 1.0));
+                float d = Hash12(cell + float2(1.0, 1.0));
+                return lerp(lerp(a, b, local.x), lerp(c, d, local.x), local.y);
+            }
+
+            // Four layers of noise, each half the size and half as strong as the last: puffy clouds.
+            float CloudNoise(float2 p)
+            {
+                float sum = 0.0;
+                float strength = 0.5;
+                for (int i = 0; i < 4; i++)
+                {
+                    sum += strength * Noise2(p);
+                    p = p * 2.03 + 17.0;
+                    strength *= 0.5;
+                }
+                return sum;
+            }
+
             half4 frag(Varyings input) : SV_Target
             {
                 float3 direction = normalize(input.direction);
@@ -162,6 +218,27 @@ Shader "PlanetMakey/Gradient Sky"
                 float sunHalo = pow(saturate(sunAlignment), 160.0) * 0.4;
                 float sunFade = (1.0 - _Night) * smoothstep(-0.02, 0.05, up);
                 sky += _SunColor.rgb * (sunDisc + sunHalo) * sunFade;
+
+                // Clouds on a flat layer high overhead, drifting along x. Looking up, the layer is near;
+                // towards the horizon it is far, so the clouds shrink and bunch up, and fade out there.
+                float2 cloudPlane = direction.xz / (max(up, 0.0) + 0.08);
+                cloudPlane = cloudPlane * _CloudScale + float2(_Time.y * _CloudSpeed, 0.0);
+                float cloudNoise = CloudNoise(cloudPlane);
+                float threshold = 1.0 - _CloudCoverage;
+                float density = smoothstep(threshold, threshold + _CloudSoftness, cloudNoise);
+                float cloudAlpha = density * smoothstep(0.0, _CloudHorizonFade, up) * _CloudOpacity;
+
+                // Day: white, shaded where thick. Night: dark, with a pale edge near the moon.
+                float3 dayCloud = lerp(_CloudDayColor.rgb, _CloudDayShade.rgb, density * density * 0.7);
+                float moonLit = pow(saturate(moonAlignment), 6.0) * 0.45;
+                float3 nightCloud = _CloudNightColor.rgb + _MoonColor.rgb * moonLit * (1.0 - 0.5 * density);
+                float3 cloudColor = lerp(dayCloud, nightCloud, _Night);
+
+                // At dusk and dawn the sunset glow tints the clouds, most strongly low in the sky.
+                float cloudGlow = saturate(_Warmth * _WarmStrength * (0.35 + 0.65 * band));
+                cloudColor = lerp(cloudColor, _WarmColor.rgb, cloudGlow);
+
+                sky = lerp(sky, cloudColor, cloudAlpha);
 
                 return half4(sky, 1.0);
             }

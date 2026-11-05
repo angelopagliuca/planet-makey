@@ -42,6 +42,25 @@ namespace PlanetMakey.Game.Round
         }
 
         /// <summary>
+        /// How much of their night brightness the lamps have, from 0 (off) to 1 (full). They stay off until
+        /// the night amount reaches <paramref name="turnOnAt"/>, then ease on, so they come on part way through
+        /// dusk and go off part way through dawn, like lamps people switch on once it is getting dark.
+        /// </summary>
+        /// <param name="night">How dark it is, from <see cref="NightAmount"/>.</param>
+        /// <param name="turnOnAt">The night amount where the lamps start to come on, 0 to 1. At 1 they come on only at full night.</param>
+        public static float LampLevel(float night, float turnOnAt)
+        {
+            float clamped = Mathf.Clamp01(night);
+            if (turnOnAt >= 1f)
+            {
+                return clamped >= 1f ? 1f : 0f;
+            }
+
+            float linear = Mathf.InverseLerp(Mathf.Max(0f, turnOnAt), 1f, clamped);
+            return Mathf.SmoothStep(0f, 1f, linear);
+        }
+
+        /// <summary>
         /// The color of the sky at the horizon: the day color turning into the night color, with the warm
         /// glow laid over it at dusk and dawn. The sky shader does the same sum, so this can color the
         /// fog to match.

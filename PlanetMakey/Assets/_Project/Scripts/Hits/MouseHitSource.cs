@@ -12,7 +12,7 @@ namespace PlanetMakey.Hits
     public sealed class MouseHitSource : HitSource
     {
         [Header("Wiring")]
-        [Tooltip("The cannon whose loaded ball color a click is reported with. Keys 1 to 4 load it by hand.")]
+        [Tooltip("The cannon whose loaded ball color a click is reported with. Keys 1 to 6 load it by hand.")]
         [SerializeField] private Cannon _cannon;
 
         [Header("Test skew")]

@@ -76,7 +76,7 @@ namespace PlanetMakey.Game.Operator
             "Hold Space at night  skip to dawn\n" +
             "Shift  show or hide this panel\n" +
             "F9  calibrate\n" +
-            "1-4  load a ball (backup for the cannon sensor)";
+            "1-6  load a ball (backup for the cannon sensor)";
 
         // The text of each row, built when its values change. Null means the row is not shown.
         private readonly string[] _rows = new string[RowCount];

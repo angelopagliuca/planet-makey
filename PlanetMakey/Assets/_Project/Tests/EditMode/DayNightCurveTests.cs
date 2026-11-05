@@ -101,6 +101,26 @@ namespace PlanetMakey.Tests.EditMode
             Assert.That(result.b, Is.EqualTo(expected.b).Within(Tolerance));
         }
 
+        [TestCase(0f, 0.4f, 0f)]
+        [TestCase(0.4f, 0.4f, 0f)]
+        [TestCase(0.7f, 0.4f, 0.5f)]
+        [TestCase(1f, 0.4f, 1f)]
+        [TestCase(0.5f, 0f, 0.5f)]
+        [TestCase(-1f, 0.4f, 0f)]
+        [TestCase(2f, 0.4f, 1f)]
+        public void LampLevel_StaysOffUntilTheTurnOnPoint_ThenEasesToFull(float night, float turnOnAt, float expected)
+        {
+            Assert.That(DayNightCurve.LampLevel(night, turnOnAt), Is.EqualTo(expected).Within(Tolerance));
+        }
+
+        [Test]
+        public void LampLevel_TurnOnAtOneOrMore_IsOnOnlyAtFullNight()
+        {
+            Assert.That(DayNightCurve.LampLevel(0.99f, 1f), Is.EqualTo(0f));
+            Assert.That(DayNightCurve.LampLevel(1f, 1f), Is.EqualTo(1f));
+            Assert.That(DayNightCurve.LampLevel(0.5f, 3f), Is.EqualTo(0f));
+        }
+
         [Test]
         public void HorizonColor_NoGlowStrength_IgnoresTheWarmColor()
         {

@@ -289,8 +289,8 @@ namespace PlanetMakey.Hits.DevTools
                 _statusHasBall = hasBall;
                 _statusColor = loaded;
                 _statusText = hasBall
-                    ? "Cannon: " + loaded + "  (keys 1-4)"
-                    : "Cannon: empty  (press 1-4 to load a ball)";
+                    ? "Cannon: " + loaded + "  (keys 1-6)"
+                    : "Cannon: empty  (press 1-6 to load a ball)";
             }
 
             float swatchSize = _fontSize;

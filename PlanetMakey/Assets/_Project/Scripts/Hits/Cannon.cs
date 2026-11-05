@@ -7,7 +7,7 @@ namespace PlanetMakey.Hits
 {
     /// <summary>
     /// The cannon: remembers the color of the ball that was loaded most recently. The cannon's
-    /// color sensor reports it with a <c>LOAD</c> message (see PROTOCOL.md), and the keys 1 to 4
+    /// color sensor reports it with a <c>LOAD</c> message (see PROTOCOL.md), and the keys 1 to 6
     /// do the same by hand. A hit that arrives without a color, from the wall sensor or from the
     /// mouse, is reported with this color.
     /// </summary>
@@ -18,7 +18,7 @@ namespace PlanetMakey.Hits
     /// </remarks>
     public sealed class Cannon : MonoBehaviour
     {
-        [Tooltip("Keys 1 to 4 load a red, blue, yellow or green ball. A backup for the cannon's color sensor, and the way to load a ball at a desk.")]
+        [Tooltip("Keys 1 to 6 load a red, blue, yellow, green, purple or orange ball. A backup for the cannon's color sensor, and the way to load a ball at a desk.")]
         [SerializeField] private bool _keysEnabled = true;
 
         [NonSerialized] private bool _hasBall;
@@ -77,6 +77,14 @@ namespace PlanetMakey.Hits
             else if (keyboard.digit4Key.wasPressedThisFrame)
             {
                 Load(BallColor.Green);
+            }
+            else if (keyboard.digit5Key.wasPressedThisFrame)
+            {
+                Load(BallColor.Purple);
+            }
+            else if (keyboard.digit6Key.wasPressedThisFrame)
+            {
+                Load(BallColor.Orange);
             }
         }
     }

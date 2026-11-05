@@ -31,7 +31,7 @@ LOAD <color>
 
 | Field | Meaning |
 |-------|---------|
-| `color` | Color of the ball: `RED`, `BLUE`, `YELLOW` or `GREEN` |
+| `color` | Color of the ball: `RED`, `BLUE`, `YELLOW`, `GREEN`, `PURPLE` or `ORANGE` |
 
 The game keeps this color until the next `LOAD`. Firing the ball does not clear it, so a hit that
 is reported a moment late, or twice, still has a color. Before the first `LOAD` the cannon is empty,
@@ -51,7 +51,7 @@ HIT <x> <y> <color>
 |-------|---------|
 | `x` | Horizontal position, from `0` (left edge) to `1` (right edge) |
 | `y` | Vertical position, from `0` (bottom edge) to `1` (top edge) |
-| `color` | Optional. Color of the ball: `RED`, `BLUE`, `YELLOW` or `GREEN` |
+| `color` | Optional. Color of the ball: `RED`, `BLUE`, `YELLOW`, `GREEN`, `PURPLE` or `ORANGE` |
 
 Left, right, bottom and top are as seen by a player facing the wall.
 

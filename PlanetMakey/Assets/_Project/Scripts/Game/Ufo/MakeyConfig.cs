@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using PlanetMakey.Core;
 using UnityEngine;
 
 namespace PlanetMakey.Game.Ufo
@@ -41,6 +43,13 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Seconds Makey celebrates after absorbing a cow, before he picks the next one.")]
         [Min(0f)]
         [SerializeField] private float _celebrateSeconds = 1.5f;
+
+        [Header("Shield colors")]
+        [Tooltip("The colors Makey's shield may have. Remove one if the cannon's color sensor cannot tell it apart from another at the booth; the game then simply does not use it. A new shield is never the same color as the one before. Empty means every color.")]
+        [SerializeField] private BallColor[] _shieldColors =
+        {
+            BallColor.Red, BallColor.Blue, BallColor.Yellow, BallColor.Green, BallColor.Purple, BallColor.Orange
+        };
 
         [Header("Hover height")]
         [Tooltip("Lowest height, in world units above the cow's resting position, that Makey hovers at over a cow. He picks a random height between this and the maximum each time he picks a cow.")]
@@ -94,6 +103,9 @@ namespace PlanetMakey.Game.Ufo
 
         /// <summary>Seconds spent celebrating an absorbed cow.</summary>
         public float CelebrateSeconds => _celebrateSeconds;
+
+        /// <summary>The colors the shield may have. Empty means every color.</summary>
+        public IReadOnlyList<BallColor> ShieldColors => _shieldColors;
 
         /// <summary>Lowest hover height above a cow's resting position, in world units.</summary>
         public float HoverHeightMin => _hoverHeightMin;

@@ -13,6 +13,8 @@ namespace PlanetMakey.Core
         [SerializeField] private Color _blue = Color.blue;
         [SerializeField] private Color _yellow = Color.yellow;
         [SerializeField] private Color _green = Color.green;
+        [SerializeField] private Color _purple = new Color(0.68f, 0.28f, 1f, 1f);
+        [SerializeField] private Color _orange = new Color(1f, 0.52f, 0.05f, 1f);
 
         [Tooltip("Shown for a ball color this palette does not know. It should look wrong on purpose.")]
         [SerializeField] private Color _unknown = Color.magenta;
@@ -30,6 +32,10 @@ namespace PlanetMakey.Core
                     return _yellow;
                 case BallColor.Green:
                     return _green;
+                case BallColor.Purple:
+                    return _purple;
+                case BallColor.Orange:
+                    return _orange;
                 default:
                     // A color added to the enum but not here should be obvious on screen,
                     // not crash the booth.

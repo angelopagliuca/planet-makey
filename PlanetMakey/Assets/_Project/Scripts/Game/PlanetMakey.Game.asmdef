@@ -6,6 +6,7 @@
         "PlanetMakey.Hits",
         "Unity.InputSystem",
         "Unity.TextMeshPro",
+        "UnityEngine.UI",
         "Unity.RenderPipelines.Core.Runtime"
     ],
     "includePlatforms": [],

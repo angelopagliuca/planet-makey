@@ -39,7 +39,7 @@ import socket
 import sys
 import time
 
-COLORS = ["RED", "BLUE", "YELLOW", "GREEN"]
+COLORS = ["RED", "BLUE", "YELLOW", "GREEN", "PURPLE", "ORANGE"]
 CORNER_NAMES = ["bottom left", "bottom right", "top right", "top left"]
 DEFAULT_TESTS = ["sweep", "bad", "noise", "duplicates", "cannon"]
 ALL_TESTS = DEFAULT_TESTS + ["calibrate"]
@@ -449,7 +449,7 @@ def parse_args(argv):
 
     path = parser.add_argument_group("what to send")
     path.add_argument("--color", type=str.upper, choices=COLORS,
-                      help="use one color for every hit (default: cycle through all four)")
+                      help="use one color for every hit (default: cycle through all six)")
     path.add_argument("--cannon", action="store_true",
                       help="send hits with no color, with a LOAD before each change of color "
                            "(default: every hit carries its color)")
