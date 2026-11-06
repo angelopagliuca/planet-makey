@@ -49,6 +49,27 @@ namespace PlanetMakey.Game.Ufo
         [Tooltip("Name of the state in the Animator that holds the escape clip, played while Makey leaves at the end of a round. If the controller has no such state, he just stays in the idle pose until he is hidden.")]
         [SerializeField] private string _escapeStateName = "Escape";
 
+        [Header("Warp animation")]
+        [Tooltip("Name of the Animator layer that holds the warp clip, played once over the idle pose each time Makey's beam comes down on a cow. Add a layer with this name to the controller (blending Override, weight 0). Leave it empty to not use the warp clip. A missing layer is a warning, and the rest works as before.")]
+        [SerializeField] private string _warpLayerName = "Warp";
+
+        [Tooltip("Name of the state, on that layer, that holds the warp clip.")]
+        [SerializeField] private string _warpStateName = "Warp";
+
+        [Tooltip("How fast the warp clip plays, as a multiple of its own speed.")]
+        [Min(0f)]
+        [SerializeField] private float _warpSpeed = 1f;
+
+        [Tooltip("Seconds the warp clip takes to blend in when the beam comes down, and out to the idle pose once it has played, so it need not start or end in the idle pose.")]
+        [Min(0f)]
+        [SerializeField] private float _warpBlendSeconds = 0.25f;
+
+        [Tooltip("Name of the bone whose position the warp clip must not move: the ship's root bone, which carries the whole ship, so the clip would swing all of Makey about. It is held where the idle pose has it while the clip plays; its turn still follows the clip. Leave it empty to let the clip move it too.")]
+        [SerializeField] private string _warpFixedBoneName = "Bone_Root";
+
+        [Tooltip("When ticked, the ship stays on the clip's last frame after it has played, until the beam is gone, and only then blends to the idle pose. Unticked, it blends to the idle pose as soon as the clip has played.")]
+        [SerializeField] private bool _warpHoldLastFrame;
+
         [Header("Shield")]
         [Tooltip("How strong the shield is, from 0 (invisible) to 1. The shield shader turns it into a faint fill and a brighter rim.")]
         [Range(0f, 1f)]
@@ -235,6 +256,21 @@ namespace PlanetMakey.Game.Ufo
         [NonSerialized] private bool _animatorPrepared;
         [NonSerialized] private bool _introTransformsLogged;
 
+        // The warp clip: its layer and state, how much of it is blended in, how long it has run (a time
+        // that is placed by hand like the other clips) and how long the clip is.
+        [NonSerialized] private int _warpLayer;
+        [NonSerialized] private int _warpHash;
+        [NonSerialized] private bool _warpUsable;
+        [NonSerialized] private float _warpWeight;
+        [NonSerialized] private float _warpTime;
+        [NonSerialized] private float _warpLength;
+        [NonSerialized] private bool _warpBeamWasOn;
+        [NonSerialized] private bool _warpFinished;
+
+        // The bone whose position is kept, and where the idle pose has it (sampled while the clip is off).
+        [NonSerialized] private Transform _warpFixedBone;
+        [NonSerialized] private Vector3 _warpFixedPosition;
+
         // Where the model's own object was placed in the scene. The clip rewrites it every
         // frame, so it is put back after the clip is applied.
         [NonSerialized] private Vector3 _modelRootPosition;
@@ -381,6 +417,7 @@ namespace PlanetMakey.Game.Ufo
 
             MakeyState state = _makey.State;
             UpdateIntro(state);
+            UpdateWarp(state);
             UpdateShield(state);
             UpdatePivot(state);
             UpdateDazeEffect(state);
@@ -398,6 +435,13 @@ namespace PlanetMakey.Game.Ufo
             _introHeld = false;
             _animatorPrepared = false;
             _introTransformsLogged = false;
+            _warpUsable = false;
+            _warpWeight = 0f;
+            _warpTime = 0f;
+            _warpLength = 0f;
+            _warpBeamWasOn = false;
+            _warpFinished = false;
+            _warpFixedBone = null;
 
             if (_modelAnimator == null)
             {
@@ -443,6 +487,17 @@ namespace PlanetMakey.Game.Ufo
                 return;
             }
 
+            // The warp layer goes back to no weight, so the controller is left as it was found.
+            if (_warpUsable)
+            {
+                if (_modelAnimator.gameObject.activeInHierarchy)
+                {
+                    _modelAnimator.SetLayerWeight(_warpLayer, 0f);
+                }
+
+                _warpUsable = false;
+            }
+
             // The model's own object goes back to where the scene had it, before this is cleared.
             KeepModelRoot();
             _animatorPrepared = false;
@@ -470,6 +525,13 @@ namespace PlanetMakey.Game.Ufo
             {
                 if (modelObject.activeSelf)
                 {
+                    // A warp clip still blending out must not leave its pose for the next round's intro.
+                    if (_warpUsable && _warpWeight > 0f)
+                    {
+                        _modelAnimator.SetLayerWeight(_warpLayer, 0f);
+                        _warpWeight = 0f;
+                    }
+
                     modelObject.SetActive(false);
                     Log("Model hidden until Makey starts to enter.");
                 }
@@ -544,6 +606,202 @@ namespace PlanetMakey.Game.Ufo
             {
                 Debug.LogWarning("The model Animator's controller has no state called '" + _escapeStateName + "' on its first layer, so Makey will not fly off with the escape clip at the end of a round. Add the state, or rename the field on this component.", this);
             }
+
+            CheckWarp();
+        }
+
+        // The warp clip is optional too: without its layer Makey just holds the idle pose while he takes a cow.
+        private void CheckWarp()
+        {
+            _warpUsable = false;
+
+            if (string.IsNullOrEmpty(_warpLayerName))
+            {
+                return;
+            }
+
+            _warpLayer = _modelAnimator.GetLayerIndex(_warpLayerName);
+            if (_warpLayer < 0)
+            {
+                Debug.LogWarning("The model Animator's controller has no layer called '" + _warpLayerName + "', so the warp clip will not play while Makey takes a cow. Add a layer with that name (blending Override, weight 0) holding a '" + _warpStateName + "' state, or leave the layer name empty on this component.", this);
+                return;
+            }
+
+            if (_warpLayer == 0)
+            {
+                Debug.LogWarning("The warp layer '" + _warpLayerName + "' is the controller's base layer, which carries the intro and escape clips. Put the warp clip on a layer of its own.", this);
+                return;
+            }
+
+            _warpHash = Animator.StringToHash(_warpStateName);
+            if (!_modelAnimator.HasState(_warpLayer, _warpHash))
+            {
+                Debug.LogWarning("The warp layer '" + _warpLayerName + "' has no state called '" + _warpStateName + "', so the warp clip will not play. Add the state, or rename the field on this component.", this);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_warpFixedBoneName))
+            {
+                _warpFixedBone = FindBone(_modelAnimator.transform, _warpFixedBoneName);
+                if (_warpFixedBone == null)
+                {
+                    Debug.LogWarning("No bone called '" + _warpFixedBoneName + "' was found under the model, so the warp clip is free to move the whole ship. Fix the bone name on this component, or leave it empty.", this);
+                }
+                else
+                {
+                    _warpFixedPosition = _warpFixedBone.localPosition;
+                }
+            }
+
+            _modelAnimator.SetLayerWeight(_warpLayer, 0f);
+            _warpUsable = true;
+            Log("Warp animation: layer '" + _warpLayerName + "', state '" + _warpStateName + "', played once each time the beam comes down on a cow.");
+        }
+
+        // When the beam comes down on a cow, the warp clip plays once on its own layer, over the idle pose, from
+        // its first frame. When it has run its length (or the beam is gone) the layer blends out to the idle pose.
+        // Like the other clips it is placed by hand (the Animator's speed is 0): a time that runs on here picks
+        // the point in the clip, and the layer's weight blends it in and out, so the clip does not have to start
+        // or end in the idle pose.
+        private void UpdateWarp(MakeyState state)
+        {
+            if (_modelAnimator == null || !_introUsable || !_warpUsable)
+            {
+                return;
+            }
+
+            float deltaTime = Time.deltaTime;
+            bool onStage = state == MakeyState.Shielded || state == MakeyState.Dazed || state == MakeyState.Recovering;
+            AbductionPhase phase = _makey.AbductionPhase;
+            bool beamOn = onStage && _makey.TargetCowIndex >= 0
+                && (phase == AbductionPhase.LoweringBeam || phase == AbductionPhase.Lifting);
+
+            if (beamOn && !_warpBeamWasOn)
+            {
+                // A new abduction: the clip starts again from its first frame.
+                _warpTime = 0f;
+                _warpFinished = false;
+                if (deltaTime > 0f)
+                {
+                    Log("Warp clip starts, to play once.");
+                }
+            }
+
+            _warpBeamWasOn = beamOn;
+
+            // Once played, the clip blends out to the idle pose, or stays on its last frame until the beam is gone.
+            bool show = beamOn && (!_warpFinished || _warpHoldLastFrame);
+
+            float weightWas = _warpWeight;
+            _warpWeight = BeamShape.MoveLevel(_warpWeight, show ? 1f : 0f, deltaTime, _warpBlendSeconds);
+
+            if (_warpWeight <= 0f)
+            {
+                // Just faded out: take the clip's pose off the model.
+                if (weightWas > 0f && _modelAnimator.gameObject.activeInHierarchy)
+                {
+                    _modelAnimator.SetLayerWeight(_warpLayer, 0f);
+                    _modelAnimator.Update(0f);
+                    KeepModelRoot();
+                    Log("Warp clip ends.");
+                }
+
+                // While the clip is off, the idle pose is what is on the model: that is where the kept bone stays.
+                if (_warpFixedBone != null && _modelAnimator.gameObject.activeInHierarchy)
+                {
+                    _warpFixedPosition = _warpFixedBone.localPosition;
+                }
+
+                return;
+            }
+
+            if (!_modelAnimator.gameObject.activeInHierarchy)
+            {
+                return;
+            }
+
+            if (beamOn && !_warpFinished)
+            {
+                _warpTime += deltaTime * _warpSpeed;
+                if (_warpLength > 0f && _warpTime >= _warpLength)
+                {
+                    _warpFinished = true;
+                    Log("Warp clip has played once" + (_warpHoldLastFrame ? ": holding its last frame until the beam is gone." : ": blending out to the idle pose."));
+                }
+            }
+
+            // Once the clip is done, or the beam is gone, it stays on the point it reached while it blends out.
+            float normalized = _warpLength > 0f ? Mathf.Clamp01(_warpTime / _warpLength) : 0f;
+
+            _modelAnimator.SetLayerWeight(_warpLayer, Mathf.SmoothStep(0f, 1f, _warpWeight));
+            _modelAnimator.Play(_warpHash, _warpLayer, normalized);
+            _modelAnimator.Update(0f);
+            KeepWarpBone();
+
+            // The clip's length is known once its state has been entered.
+            if (_warpLength <= 0f)
+            {
+                _warpLength = ReadWarpLength();
+                if (_warpLength <= 0f)
+                {
+                    _warpLength = 1f;
+                    Debug.LogWarning("The warp state '" + _warpStateName + "' reports no usable length (does it have a clip?), so one second is used for its length.", this);
+                }
+                else
+                {
+                    Log("Warp clip is " + _warpLength.ToString("0.00") + " s long.");
+                }
+            }
+
+            KeepModelRoot();
+        }
+
+        // Puts the kept bone back where the idle pose has it. The Animator applies itself once more later in the
+        // frame, so this is repeated in LateUpdate.
+        private void KeepWarpBone()
+        {
+            if (_warpFixedBone != null)
+            {
+                _warpFixedBone.localPosition = _warpFixedPosition;
+            }
+        }
+
+        // Finds a bone by name anywhere under the given object, or null.
+        private static Transform FindBone(Transform parent, string boneName)
+        {
+            foreach (Transform child in parent)
+            {
+                if (child.name == boneName)
+                {
+                    return child;
+                }
+
+                Transform found = FindBone(child, boneName);
+                if (found != null)
+                {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+
+        // The length of the clip in the warp layer's current state, in seconds. It is read from the clip itself:
+        // the state's own length is divided by the Animator's speed, and that is 0 here, so it comes out infinite.
+        // Returns 0 if there is no usable length.
+        private float ReadWarpLength()
+        {
+            AnimatorClipInfo[] clips = _modelAnimator.GetCurrentAnimatorClipInfo(_warpLayer);
+            for (int i = 0; i < clips.Length; i++)
+            {
+                if (clips[i].clip != null && clips[i].clip.length > 0f)
+                {
+                    return clips[i].clip.length;
+                }
+            }
+
+            float stateLength = _modelAnimator.GetCurrentAnimatorStateInfo(_warpLayer).length;
+            return float.IsFinite(stateLength) && stateLength > 0f && stateLength < 60f ? stateLength : 0f;
         }
 
         // Puts the clip in the given Animator state at this point in its run (0 to 1).
@@ -601,6 +859,11 @@ namespace PlanetMakey.Game.Ufo
             if (_captured)
             {
                 KeepModelRoot();
+
+                if (_warpUsable && _warpWeight > 0f)
+                {
+                    KeepWarpBone();
+                }
             }
         }
 
