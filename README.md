@@ -9,7 +9,7 @@ shield to break it and save the cow. Keep as many cows as you can until the roos
 ## Requirements
 
 - Unity **6000.6.4f1**, installed through Unity Hub
-- Python 3.6 or newer, only for the test scripts in `DevTools/` (nothing to install with pip)
+- Python 3.6 or newer, only for the test scripts in `DevTools/` and the wall sensor program in `Hardware/` (nothing to install with pip)
 
 ## Repository layout
 

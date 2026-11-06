@@ -49,9 +49,48 @@ To give the adapter back its automatic address:
 Remove-NetIPAddress -InterfaceAlias "Ethernet" -IPAddress 192.168.0.11 -Confirm:$false; Set-NetIPInterface -InterfaceAlias "Ethernet" -Dhcp Enabled
 ```
 
+## The wall sensor program
+
+`Lidar/lidar_hits.py` reads the sensor and sends `HIT <x> <y>` to the game over TCP for every ball
+that crosses its scan plane. Its settings are in `Lidar/config.ini`, and the comments there explain
+each one. The ones to set for a booth:
+
+- the **size of the projected picture** (for example 8 by 4 feet)
+- **where the sensor sits**, measured from the picture's bottom left corner (for example the middle
+  of the top edge: 4 feet across and 4 feet up)
+- **which sensor angle points straight down the wall**: the number printed around the sensor
+  that points away from the top edge, normally 90
+
+The scan plane is parallel to the wall, so a ball in the plane is right above the spot it will hit.
+The program turns the sensor's angle and distance into a position in feet, and dividing by the
+picture's size gives `x` and `y` from 0 to 1. The game's calibration (F9) corrects what the
+measurements get wrong, so a few centimeters (an inch or two) is plenty.
+
+Set it up once:
+
+1. Fill in `Lidar/config.ini`, and mount the sensor with its 90 mark pointing down the wall.
+2. Run `python Lidar/lidar_hits.py --track`, keep the wall clear for the first 5 seconds, then hold
+   a ball in the scan plane at the picture's four corners and its middle. It prints the `x` and
+   `y` it works out: about 0 and 1 at the corners, 0.5 and 0.5 in the middle. If left and right
+   are swapped, change `angles_increase` in the config. If everything is shifted, check the
+   sensor's `x` and `y`.
+3. Run `python Lidar/lidar_hits.py --dry-run` and throw a few balls. Each one prints one hit, and
+   nothing is sent to the game.
+
+Then, to run it for the booth, start the game and run `python Lidar/lidar_hits.py`. It connects to
+the game by itself, and reconnects if the game is restarted. Calibrate with F9 in the game once the
+sensor is mounted. It learns the empty scan when it starts, so keep the area in front of the wall
+clear for the first 5 seconds, and restart it if something in the booth is moved.
+
+Things it does on its own: a ball that bounces back through the scan counts once, something
+that stays in the scan for 2 seconds is treated as part of the scene, and if the sensor stops
+sending it asks it to start again. It sends a hit as soon as the first sweep sees the ball, so the
+position is where the ball was first seen.
+
 ## Checking the catch rate
 
-With the sensor mounted, run `python ../DevTools/robilidar_probe.py --catch`.
+With the sensor mounted, run `python ../DevTools/robilidar_probe.py --catch`. This counts throws
+and catches without the game.
 
 1. Keep the area clear for the first 5 seconds while it learns the empty scene.
 2. Leave it alone for a minute. Any impact it reports now is a false alarm.
