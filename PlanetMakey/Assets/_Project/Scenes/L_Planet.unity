@@ -213591,6 +213591,157 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 156212501}
   m_Mesh: {fileID: -1056558577128527737, guid: bf4605d2db157ff41bf805c86444b8c8, type: 3}
+--- !u!1 &156241315
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 156241318}
+  - component: {fileID: 156241317}
+  - component: {fileID: 156241316}
+  m_Layer: 0
+  m_Name: Music
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &156241316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 156241315}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7d27622e8a7c3746acb7370135c1636, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlanetMakey.Game::PlanetMakey.Game.Audio.MusicPlayer
+  _round: {fileID: 1139369631}
+  _source: {fileID: 156241317}
+  _config: {fileID: 11400000, guid: bde1466d3bc58b94daceabf9900c7f6c, type: 2}
+  _clip: {fileID: 8300000, guid: 2edae0df1e18c1641862b9a2daf0c686, type: 3}
+  _volume: 0.8
+  _fadeInSeconds: 5
+  _fadeOutSeconds: 5
+  _lengthTolerance: 1
+  _debugLog: 1
+--- !u!82 &156241317
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 156241315}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 0
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!4 &156241318
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 156241315}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &156287228
 GameObject:
   m_ObjectHideFlags: 0
@@ -793525,6 +793676,7 @@ MonoBehaviour:
   _warpStateName: Warp
   _warpSpeed: 1
   _warpBlendSeconds: 0.25
+  _warpFixedBoneName: Bone_Root
   _warpHoldLastFrame: 1
   _shieldAlpha: 0.4
   _shieldGlow: 2.5
@@ -1211948,6 +1212100,10 @@ MonoBehaviour:
   _hopStretch: 0.08
   _hopTurnMin: 30
   _hopTurnMax: 120
+  _liftShakeDistance: 0.03
+  _liftShakeDegrees: 4
+  _liftShakeSpeed: 28
+  _liftShakeRamp: 0.1
   _shrinkStart: 0.8
   _endScale: 0.55
   _debugLog: 1
@@ -2154082,6 +2154238,293 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1601307240}
   m_Mesh: {fileID: 7208372258677634005, guid: e5ac683bca48d2c47b7c1f9c264b856f, type: 3}
+--- !u!1 &1601354471
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1601354474}
+  - component: {fileID: 1601354473}
+  - component: {fileID: 1601354472}
+  m_Layer: 0
+  m_Name: Sounds
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1601354472
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601354471}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 47b7ac69eef44134e9a067aab4313ee3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlanetMakey.Game::PlanetMakey.Game.Audio.GameSounds
+  _sfx: {fileID: 1601354473}
+  _round: {fileID: 1139369631}
+  _makey: {fileID: 581226754}
+  _cowHerdView: {fileID: 890792966}
+  _crickets:
+    _clip: {fileID: 0}
+    _volume: 1
+    _pitch: 1
+    _fadeInSeconds: 2
+    _fadeOutSeconds: 2
+  _rooster:
+    _clips:
+    - {fileID: 8300000, guid: c63ea56d8fd661e4e885cdecab8719f5, type: 3}
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _sunriseChime:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _scoreAllSaved:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 1.5
+  _scoreSomeSaved:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 1.5
+  _scoreNoneSaved:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 1.5
+  _idleHum:
+    _clip: {fileID: 8300000, guid: 4bb1b4e982738864180c8b070bf5881e, type: 3}
+    _volume: 1
+    _pitch: 1
+    _fadeInSeconds: 1
+    _fadeOutSeconds: 1
+  _idleMoo:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _idleMooMin: 15
+  _idleMooMax: 40
+  _flyInWhoosh:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _flyInGiggle:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 1
+  _shieldRed:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _shieldBlue:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _shieldYellow:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _shieldGreen:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _shieldPurple:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _shieldOrange:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _deflectPing:
+    _clips:
+    - {fileID: 8300000, guid: 550dc295084db63408638cfaa164b61d, type: 3}
+    - {fileID: 8300000, guid: 9fc0b2139220e6f4aa356cc21187e46e, type: 3}
+    _volume: 1
+    _pitchMin: 0.75
+    _pitchMax: 1.25
+    _delay: 0
+  _deflectTaunt:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _tauntChance: 0.5
+  _shatter:
+    _clips:
+    - {fileID: 8300000, guid: 4e1431a9f2de7ea40900b1a5b98922fd, type: 3}
+    - {fileID: 8300000, guid: 350e851b98a042345949ba574f9056b7, type: 3}
+    _volume: 1
+    _pitchMin: 0.75
+    _pitchMax: 1.25
+    _delay: 0
+  _shatterOw:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0.15
+  _dazedTweets:
+    _clip: {fileID: 0}
+    _volume: 1
+    _pitch: 1
+    _fadeInSeconds: 0.2
+    _fadeOutSeconds: 0.3
+  _recoverRattle:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _warpAway:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _beamStart:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _beamLoop:
+    _clip: {fileID: 0}
+    _volume: 1
+    _pitch: 1
+    _fadeInSeconds: 0.3
+    _fadeOutSeconds: 0.4
+  _urgencyStart: 0.6
+  _urgentPitch: 1.4
+  _urgentWobble: 0.3
+  _cowStartled:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _cowEyePop:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _cowScaredLoop:
+    _clip: {fileID: 0}
+    _volume: 1
+    _pitch: 1
+    _fadeInSeconds: 0.2
+    _fadeOutSeconds: 0.2
+  _cowBuzzLoop:
+    _clip: {fileID: 0}
+    _volume: 1
+    _pitch: 1
+    _fadeInSeconds: 0.2
+    _fadeOutSeconds: 0.2
+  _cowAbsorbedPop:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _cowAbsorbedMoo:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _cowLandBoing:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _cowRelievedMoo:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0.15
+  _herdEmptied:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _hopThump:
+    _clips: []
+    _volume: 1
+    _pitchMin: 1
+    _pitchMax: 1
+    _delay: 0
+  _hopMinInterval: 0.15
+  _debugLog: 1
+--- !u!114 &1601354473
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601354471}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1303a7275f5f2a941bc6d5097c975ddd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PlanetMakey.Game::PlanetMakey.Game.Audio.SfxPlayer
+  _mixerGroup: {fileID: 0}
+  _masterVolume: 1
+  _voices: 12
+--- !u!4 &1601354474
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1601354471}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1601358499
 GameObject:
   m_ObjectHideFlags: 0
@@ -2898143,3 +2898586,5 @@ SceneRoots:
   - {fileID: 1714111466}
   - {fileID: 1265686930}
   - {fileID: 2145845086}
+  - {fileID: 156241318}
+  - {fileID: 1601354474}

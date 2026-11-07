@@ -6,7 +6,7 @@ namespace PlanetMakey.Game.Round
         /// <summary>Between rounds. Waiting for an operator to start one.</summary>
         Idle,
 
-        /// <summary>The cows are back and night is falling. Makey is not here yet.</summary>
+        /// <summary>Night is falling. Makey is not here yet.</summary>
         Dusk,
 
         /// <summary>Makey is abducting cows and the players defend them. The clock runs.</summary>

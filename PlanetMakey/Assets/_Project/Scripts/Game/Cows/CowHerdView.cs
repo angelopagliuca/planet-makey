@@ -134,6 +134,9 @@ namespace PlanetMakey.Game.Cows
         [NonSerialized] private float[] _spins;
         [NonSerialized] private bool _captured;
 
+        /// <summary>Raised when a cow lands from an idle hop, with her number. The sounds listen to this.</summary>
+        public event Action<int> HopLanded;
+
         private void OnEnable()
         {
             _cowHerd = _makey != null ? _makey.CowHerd : null;
@@ -296,6 +299,7 @@ namespace PlanetMakey.Game.Cows
                 if (_hopLeft[index] <= 0f)
                 {
                     _hopWaitLeft[index] = NextHopWait(false);
+                    HopLanded?.Invoke(index);
                     return;
                 }
             }

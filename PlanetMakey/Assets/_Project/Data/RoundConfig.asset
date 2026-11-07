@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: RoundConfig
   m_EditorClassIdentifier: PlanetMakey.Game::PlanetMakey.Game.Round.RoundConfig
   _duskSeconds: 5
-  _nightSeconds: 150
+  _nightSeconds: 122
   _dawnSeconds: 5

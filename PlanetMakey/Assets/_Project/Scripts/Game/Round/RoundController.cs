@@ -7,9 +7,9 @@ namespace PlanetMakey.Game.Round
 {
     /// <summary>
     /// Runs a round in the scene: it ticks the <see cref="RoundBrain"/>, starts a round when a
-    /// start source asks for one, and does what each state needs. At dusk the herd is brought back,
-    /// at night Makey flies in, and at dawn he leaves and the score is taken. The score is the
-    /// number of cows not lost. The look of it all (HUD, light) is up to the views.
+    /// start source asks for one, and does what each state needs. At night Makey flies in, at dawn
+    /// he leaves and the score is taken, and when the round is over (Idle) the herd is brought back.
+    /// The score is the number of cows not lost. The look of it all (HUD, light) is up to the views.
     /// </summary>
     /// <remarks>
     /// Untick Enter On Enable on <see cref="Makey"/>: this controller sends him in. The herd is
@@ -171,14 +171,17 @@ namespace PlanetMakey.Game.Round
                 return false;
             }
 
-            if (!_brain.Abort())
+            if (_brain.State != RoundState.Dusk && _brain.State != RoundState.Night)
             {
                 Log("Abort ignored: the round is " + _brain.State + ", and only dusk or night can be aborted.");
                 return false;
             }
 
-            _score = 0;
+            // Makey goes first: the herd comes back as the round goes Idle, and a Makey who was still hunting
+            // would pick one of the cows that just returned.
             _makey.Leave();
+            _brain.Abort();
+            _score = 0;
             Log("Round aborted by the operator. Makey is sent off and there is no score.");
             return true;
         }
@@ -228,13 +231,7 @@ namespace PlanetMakey.Game.Round
             switch (state)
             {
                 case RoundState.Dusk:
-                    // The herd comes back before anyone is told, so the views see a full herd.
                     _score = 0;
-                    if (_cowHerd != null)
-                    {
-                        _cowHerd.ResetHerd();
-                    }
-
                     break;
 
                 case RoundState.Night:
@@ -246,6 +243,16 @@ namespace PlanetMakey.Game.Round
                     // The score is taken first, and it counts that cow either way.
                     _score = CowsSafe;
                     _makey.Leave();
+                    break;
+
+                case RoundState.Idle:
+                    // The round is over, so the cows lost in it come back. Makey is already gone or leaving,
+                    // and the HUD is hiding, so nothing shows the herd refilling except the cows themselves.
+                    if (_cowHerd != null)
+                    {
+                        _cowHerd.ResetHerd();
+                    }
+
                     break;
             }
 
@@ -262,14 +269,14 @@ namespace PlanetMakey.Game.Round
             switch (state)
             {
                 case RoundState.Dusk:
-                    return "Round -> Dusk. The herd is reset and the light fades for " + _config.DuskSeconds.ToString("0.0#") + " s.";
+                    return "Round -> Dusk. The light fades for " + _config.DuskSeconds.ToString("0.0#") + " s.";
                 case RoundState.Night:
                     return "Round -> Night for " + _config.NightSeconds.ToString("0.0#") + " s. Makey is sent in.";
                 case RoundState.Dawn:
                     return "Round -> Dawn for " + _config.DawnSeconds.ToString("0.0#") + " s. Score " + _score + " of "
                         + CowsTotal + ". Makey is sent off.";
                 default:
-                    return "Round -> Idle. Waiting for a start request.";
+                    return "Round -> Idle. The herd is reset. Waiting for a start request.";
             }
         }
 
